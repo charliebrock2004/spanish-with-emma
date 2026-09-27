@@ -29,7 +29,7 @@ export function IntroCard({ exercise, env, onDone }: ExerciseProps<IntroExercise
         <PromptBubble text={script} name={env.name} />
         <Card className="mt-6 animate-enter px-6 pt-6 pb-7 text-center">
           <p className="text-xs font-extrabold tracking-[0.18em] text-terracotta uppercase">{isPhrase ? 'New phrase' : 'New word'}</p>
-          <p lang="es" className="mt-3 font-display text-[44px] leading-[1.05] font-semibold text-brick [font-variation-settings:'SOFT'_100,'WONK'_1]">
+          <p lang="es" className="mt-3 font-display text-[44px] leading-[1.05] font-semibold text-brick [font-variation-settings:'SOFT'_50,'WONK'_1]">
             {exercise.spanish}
           </p>
           {env.showPronunciation && exercise.pronunciation && (

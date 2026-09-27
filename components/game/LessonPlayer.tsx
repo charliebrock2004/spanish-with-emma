@@ -1,7 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { SessionSkeleton } from '@/components/layout/SessionSkeleton';
+import { useReadyPlayer } from '@/components/layout/useReadyPlayer';
 import { computeJourney } from '@/lib/progress/journey';
 import type { VocabLike } from '@/lib/progress/srs';
 import { useGameStore } from '@/store/gameStore';
@@ -17,16 +19,6 @@ export interface LessonPayload {
   words: Array<{ spanish: string; english: string }>;
 }
 
-function SessionSkeleton() {
-  return (
-    <div className="paper flex h-dvh flex-col px-4 pt-4" aria-busy="true" aria-label="Loading lesson">
-      <div className="skeleton mx-auto h-4 w-full max-w-xl rounded-full" />
-      <div className="skeleton mx-auto mt-8 h-20 w-full max-w-xl rounded-2xl" />
-      <div className="skeleton mx-auto mt-6 h-64 w-full max-w-xl rounded-[var(--radius-card)]" />
-    </div>
-  );
-}
-
 export function LessonPlayer({
   lesson,
   vocab,
@@ -39,15 +31,10 @@ export function LessonPlayer({
   levels: LevelMeta[];
 }) {
   const router = useRouter();
-  const hydrated = useGameStore((s) => s.hydrated);
-  const onboarded = useGameStore((s) => s.profile.onboarded);
+  const ready = useReadyPlayer();
   const [run, setRun] = useState(0);
   const [result, setResult] = useState<{ summary: CompletionSummary; next: LessonSummary | null } | null>(null);
   const [levelUp, setLevelUp] = useState<{ completed: LevelMeta; next: LevelMeta | null } | null>(null);
-
-  useEffect(() => {
-    if (hydrated && !onboarded) router.replace('/welcome');
-  }, [hydrated, onboarded, router]);
 
   const onFinish = useCallback(
     (session: SessionResult) => {
@@ -94,7 +81,7 @@ export function LessonPlayer({
     [lesson, summaries, levels],
   );
 
-  if (!hydrated || !onboarded) return <SessionSkeleton />;
+  if (!ready) return <SessionSkeleton label="Loading lesson" />;
 
   if (result) {
     return (

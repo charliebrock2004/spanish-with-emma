@@ -101,14 +101,17 @@ export function LessonComplete({
   onPrimary,
   secondaryLabel,
   onSecondary,
+  emmaSays,
 }: {
   summary: CompletionSummary;
   primaryLabel: string;
   onPrimary: () => void;
   secondaryLabel?: string;
   onSecondary?: () => void;
+  /** Emma's line (defaults to a lesson-complete line). */
+  emmaSays?: string;
 }) {
-  const [line] = useState(() => (summary.perfect ? emmaLine('perfectLesson') : emmaLine('lessonDone')));
+  const [line] = useState(() => emmaSays ?? (summary.perfect ? emmaLine('perfectLesson') : emmaLine('lessonDone')));
 
   useEffect(() => {
     soundService.play('complete');

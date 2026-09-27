@@ -47,6 +47,8 @@ export interface GameData {
   adaptive: AdaptiveState;
   settings: Settings;
   conversations: ConversationRecord[];
+  /** Best score per mini-game. */
+  gameBests: Record<string, number>;
 }
 
 export interface AnswerInput {
@@ -93,7 +95,10 @@ export interface SessionCompletion {
   title: string;
   accuracy: number;
   seconds: number;
+  /** XP awarded now. */
   xp: number;
+  /** XP already awarded during the session (answers) — shown in history only. */
+  earlierXp?: number;
 }
 
 interface GameActions {
@@ -111,9 +116,13 @@ interface GameActions {
   completeSession(input: SessionCompletion, extra?: {
     resolvedMistakes?: string[];
     speedRoundScore?: number;
+    /** Listening questions answered correctly in a game. */
+    listeningCorrect?: number;
+    /** A mini-game score (tracked as a personal best). */
+    score?: number;
     conversation?: ConversationRecord;
     conversationTurns?: number;
-  }): { streak: StreakUpdate; achievements: string[] };
+  }): { streak: StreakUpdate; achievements: string[]; best: number; newBest: boolean };
   resolveMistakes(ids: string[]): void;
   /** Adds a mistake from outside a lesson (e.g. a correction in conversation). */
   logMistake(mistake: Omit<MistakeRecord, 'id' | 'at' | 'resolved'>): void;
@@ -198,6 +207,7 @@ export const initialData = (settings: Settings = DEFAULT_SETTINGS): GameData => 
   adaptive: initialAdaptive(),
   settings,
   conversations: [],
+  gameBests: {},
 });
 
 const PLACEMENT: Record<Experience, LevelId> = { new: 1, little: 2, lots: 3 };
@@ -481,6 +491,7 @@ export const useGameStore = create<GameStore>()(
           stats.gamesPlayed += 1;
           if (extra.speedRoundScore !== undefined) stats.bestSpeedRound = Math.max(stats.bestSpeedRound, extra.speedRoundScore);
         }
+        if (extra.listeningCorrect) stats.listeningCorrect += extra.listeningCorrect;
         if (input.kind === 'conversation') {
           stats = {
             ...stats,
@@ -494,7 +505,7 @@ export const useGameStore = create<GameStore>()(
             title: input.title,
             kind: input.kind,
             completedAt: now,
-            xp: input.xp,
+            xp: input.xp + (input.earlierXp ?? 0),
             accuracy: input.accuracy,
             seconds: input.seconds,
           },
@@ -505,9 +516,12 @@ export const useGameStore = create<GameStore>()(
         const conversations = extra.conversation ? [extra.conversation, ...s.conversations.filter((c) => c.id !== extra.conversation!.id)].slice(0, 20) : s.conversations;
         const xp = s.xp + input.xp;
         const activity = bumpActivity(s.activity, today, { xp: input.xp, sessions: 1 });
+        const previousBest = s.gameBests[input.id] ?? 0;
+        const newBest = extra.score !== undefined && extra.score > previousBest;
+        const gameBests = newBest ? { ...s.gameBests, [input.id]: extra.score! } : s.gameBests;
         let events = s.events;
         if (streak.event !== 'same-day') events = [...events, { id: uid('evt'), kind: 'streak', update: streak }];
-        const next: GameData = { ...s, streak: streak.state, stats, history, mistakes, conversations, xp, activity };
+        const next: GameData = { ...s, streak: streak.state, stats, history, mistakes, conversations, xp, activity, gameBests };
         const result = withAchievements(next, events);
         set({
           streak: streak.state,
@@ -517,10 +531,11 @@ export const useGameStore = create<GameStore>()(
           conversations,
           xp,
           activity,
+          gameBests,
           achievements: result.achievements,
           events: result.events,
         });
-        return { streak, achievements: result.unlocked };
+        return { streak, achievements: result.unlocked, best: Math.max(previousBest, extra.score ?? 0), newBest };
       },
 
       resolveMistakes(ids) {
@@ -570,6 +585,7 @@ export const useGameStore = create<GameStore>()(
         adaptive: s.adaptive,
         settings: s.settings,
         conversations: s.conversations,
+        gameBests: s.gameBests,
       }),
       // Fill in any fields added since the data was saved.
       merge: (persisted, current) => {
@@ -582,6 +598,7 @@ export const useGameStore = create<GameStore>()(
           streak: { ...current.streak, ...saved.streak },
           settings: { ...current.settings, ...saved.settings },
           adaptive: { ...current.adaptive, ...saved.adaptive },
+          gameBests: { ...current.gameBests, ...saved.gameBests },
         };
       },
       onRehydrateStorage: () => () => {

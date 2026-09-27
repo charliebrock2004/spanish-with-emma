@@ -16,6 +16,7 @@ export function SpeakerButton({
   showSlow = true,
   label = 'Play audio',
   rateFactor = 1,
+  quiet = false,
   className,
 }: {
   text: string;
@@ -24,6 +25,8 @@ export function SpeakerButton({
   showSlow?: boolean;
   label?: string;
   rateFactor?: number;
+  /** A soft, flat button for long lists. */
+  quiet?: boolean;
   className?: string;
 }) {
   const { say, activeKey } = useSpeaker();
@@ -54,7 +57,10 @@ export function SpeakerButton({
         onClick={() => void say(`*${text}*`, { key: normalKey, rateFactor })}
         aria-label={label}
         className={cn(
-          'relative grid shrink-0 place-items-center rounded-full bg-terracotta text-white shadow-[0_4px_0_var(--color-terracotta-dark)] transition-transform active:translate-y-[3px] active:shadow-[0_1px_0_var(--color-terracotta-dark)]',
+          'relative grid shrink-0 place-items-center rounded-full transition-transform',
+          quiet
+            ? 'bg-terracotta-light/70 text-terracotta hover:bg-terracotta-light active:scale-95'
+            : 'bg-terracotta text-white shadow-[0_4px_0_var(--color-terracotta-dark)] active:translate-y-[3px] active:shadow-[0_1px_0_var(--color-terracotta-dark)]',
           dims,
           playing && 'animate-glow',
         )}

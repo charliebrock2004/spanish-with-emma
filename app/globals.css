@@ -40,6 +40,9 @@
   --font-sans: var(--font-nunito), ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, sans-serif;
   --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
 
+  /* 650 renders more evenly than 600 in Fraunces; Nunito is variable too. */
+  --font-weight-semibold: 650;
+
   --radius-card: 1.5rem;
   --radius-button: 1.125rem;
 
@@ -251,7 +254,8 @@
 
 @layer components {
   .font-display {
-    font-variation-settings: 'SOFT' 100, 'WONK' 0;
+    /* SOFT above ~50 and exact 600/800 weights space some glyphs unevenly — keep to these. */
+    font-variation-settings: 'SOFT' 50, 'WONK' 0;
   }
 
   /* Paper grain — very subtle, keeps big cream areas from feeling flat. */
@@ -263,9 +267,9 @@
 
   .spanish {
     font-family: var(--font-display);
-    font-variation-settings: 'SOFT' 100, 'WONK' 1;
+    font-variation-settings: 'SOFT' 50, 'WONK' 1;
     color: var(--color-brick);
-    font-weight: 600;
+    font-weight: 650;
   }
 
   .skeleton {

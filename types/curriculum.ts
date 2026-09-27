@@ -272,3 +272,6 @@ export interface Lesson extends LessonSummary {
   exercises: Exercise[];
   conversation?: ConversationExercise;
 }
+
+/** An exercise tagged with the lesson it comes from (for games built from lessons). */
+export type TaggedExercise<T extends Exercise['type']> = Extract<Exercise, { type: T }> & { lessonId: string };
