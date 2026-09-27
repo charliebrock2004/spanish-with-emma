@@ -2,7 +2,7 @@
   "name": "spanish-with-emma",
   "version": "1.0.0",
   "private": true,
-  "description": "Spanish with Emma — a mobile-first Spanish learning game with voice.",
+  "description": "Spanish with Emma \u2014 a mobile-first Spanish learning game with voice.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "assets:emma": "node scripts/process-emma-assets.mjs"
+    "assets:emma": "node scripts/process-emma-assets.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
@@ -22,6 +23,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22",
     "@types/react": "^19",
