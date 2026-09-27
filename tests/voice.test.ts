@@ -117,6 +117,10 @@ describe('/api/tts', () => {
     expect(en.status).toBe(200);
     expect(en.headers.get('content-type')).toBe('audio/mpeg');
     expect(en.headers.get('x-voice-provider')).toBe('elevenlabs');
+    expect(en.headers.get('x-voice-model')).toBe('eleven_multilingual_v2');
+    expect(en.headers.get('x-voice-id')).toBe('scot-voice');
+    expect(en.headers.get('x-voice-fallback')).toBe('none');
+    expect(en.headers.get('cache-control')).toContain('immutable');
     expect(calls[0].url).toContain('/v1/text-to-speech/scot-voice/stream');
     expect(calls[0].headers['xi-api-key']).toBe('xi-secret');
     expect(calls[0].body.text).toBe('Hello there!');
@@ -138,6 +142,26 @@ describe('/api/tts', () => {
     await route.GET(ttsRequest({ lang: 'en', text: 'Hello' }));
     const { ELEVENLABS_FALLBACK_VOICE } = await import('@/lib/server/config');
     expect(calls[0].url).toContain(`/${ELEVENLABS_FALLBACK_VOICE.id}/stream`);
+    // The legacy variable names still work.
+    vi.unstubAllGlobals();
+    calls = stubProviders();
+    route = await loadRoute({ ELEVENLABS_API_KEY: 'xi', ELEVENLABS_VOICE_ID_EN: 'legacy-en', ELEVENLABS_VOICE_ID_ES: 'legacy-es' });
+    const res = await route.GET(ttsRequest({ lang: 'en', text: 'Hello' }));
+    expect(res.headers.get('x-voice-id')).toBe('legacy-en');
+    await route.GET(ttsRequest({ lang: 'es', text: 'Hola' }));
+    expect(calls[1].url).toContain('/legacy-es/stream');
+  });
+
+  it('treats empty variables (as pasted from .env.example) as unset', async () => {
+    const calls = stubProviders();
+    const { GET } = await loadRoute({ ELEVENLABS_API_KEY: 'xi', ELEVENLABS_VOICE_ID_EN: '', ELEVENLABS_VOICE_ID_ES: ' ', OPENAI_API_KEY: '', APP_ACCESS_CODE: '' });
+    const res = await GET(ttsRequest({ lang: 'en', text: 'Hello' }));
+    expect(res.status).toBe(200); // no access code demanded
+    const { ELEVENLABS_FALLBACK_VOICE } = await import('@/lib/server/config');
+    expect(res.headers.get('x-voice-provider')).toBe('elevenlabs');
+    expect(res.headers.get('x-voice-id')).toBe(ELEVENLABS_FALLBACK_VOICE.id);
+    expect(res.headers.get('x-voice-fallback')).toBe('none');
+    expect(calls).toHaveLength(1); // OpenAI isn't a provider without a key
   });
 
   it('falls back to OpenAI when ElevenLabs fails', async () => {
@@ -146,6 +170,10 @@ describe('/api/tts', () => {
     const res = await GET(ttsRequest({ lang: 'en', text: 'Hello', style: 'gentle' }));
     expect(res.status).toBe(200);
     expect(res.headers.get('x-voice-provider')).toBe('openai');
+    expect(res.headers.get('x-voice-fallback')).toBe('elevenlabs');
+    expect(res.headers.get('x-voice-model')).toBe('gpt-4o-mini-tts');
+    // A fallback voice isn't cached, so the next request tries ElevenLabs again.
+    expect(res.headers.get('cache-control')).toBe('no-store');
     expect(calls[1].url).toContain('api.openai.com');
     expect(String(calls[1].body.instructions)).toMatch(/Scottish/);
     expect(String(calls[1].body.instructions)).toMatch(/gentle/);

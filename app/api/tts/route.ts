@@ -10,6 +10,10 @@ export const maxDuration = 30;
  * GET /api/tts?lang=es&style=cheerful&text=… → audio/mpeg, streamed as it's
  * generated so playback can start before the whole line is ready. The same
  * phrase and style always sound the same, so browsers and the CDN cache it.
+ *
+ * X-Voice-* headers say what actually spoke: provider, model, voice ID and
+ * which preferred provider failed first, if any (`X-Voice-Fallback`). A
+ * fallback isn't cached, so Emma's own voice returns as soon as it recovers.
  */
 export async function GET(request: NextRequest) {
   if (!ttsProvider()) return jsonError(503, 'not-configured', 'No cloud voice is configured on the server.');
@@ -26,11 +30,15 @@ export async function GET(request: NextRequest) {
 
   try {
     const speech = await synthesise(text, lang, style);
+    const fellBack = speech.failed.length > 0;
     return new Response(speech.audio, {
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Cache-Control': 'public, max-age=604800, s-maxage=2592000, immutable',
+        'Cache-Control': fellBack ? 'no-store' : 'public, max-age=604800, s-maxage=2592000, immutable',
         'X-Voice-Provider': speech.provider,
+        'X-Voice-Model': speech.model,
+        'X-Voice-Id': speech.voice,
+        'X-Voice-Fallback': fellBack ? speech.failed.join(',') : 'none',
       },
     });
   } catch (error) {

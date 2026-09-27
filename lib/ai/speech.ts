@@ -37,9 +37,7 @@ const ELEVEN_SETTINGS: Record<VoiceStyle, { stability: number; similarity_boost:
 /** Models that accept `language_code` to pin the language (multilingual v2 detects it itself). */
 const LANGUAGE_CODE_MODELS = /(turbo|flash)_v2_5/;
 
-async function elevenLabsSpeech(text: string, lang: SpeechLang, style: VoiceStyle): Promise<Response> {
-  const voice = lang === 'es' ? serverConfig.elevenLabsVoiceSpanish : serverConfig.elevenLabsVoiceEnglish;
-  const model = serverConfig.elevenLabsModel;
+async function elevenLabsSpeech(text: string, lang: SpeechLang, style: VoiceStyle, { model, voice }: VoiceTarget): Promise<Response> {
   return fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}/stream?output_format=mp3_44100_128`, {
     method: 'POST',
     headers: {
@@ -71,13 +69,13 @@ const OPENAI_STYLE: Record<VoiceStyle, string> = {
   calm: ' Sound calm and clear, like explaining something to a friend.',
 };
 
-async function openaiSpeech(text: string, lang: SpeechLang, style: VoiceStyle): Promise<Response> {
+async function openaiSpeech(text: string, lang: SpeechLang, style: VoiceStyle, { model, voice }: VoiceTarget): Promise<Response> {
   return fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: { Authorization: `Bearer ${serverConfig.openaiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: serverConfig.openaiTtsModel,
-      voice: serverConfig.openaiTtsVoice,
+      model,
+      voice,
       input: text,
       instructions: OPENAI_VOICE[lang] + OPENAI_STYLE[style],
       response_format: 'mp3',
@@ -87,9 +85,22 @@ async function openaiSpeech(text: string, lang: SpeechLang, style: VoiceStyle): 
 
 // ─── Synthesis ─────────────────────────────────────────────────────────────
 
-export interface Speech {
+/** The model and voice a provider speaks with. Neither is secret — they're reported for diagnostics. */
+interface VoiceTarget {
+  model: string;
+  voice: string;
+}
+
+function voiceTarget(provider: TtsProviderName, lang: SpeechLang): VoiceTarget {
+  if (provider === 'openai') return { model: serverConfig.openaiTtsModel, voice: serverConfig.openaiTtsVoice };
+  return { model: serverConfig.elevenLabsModel, voice: lang === 'es' ? serverConfig.elevenLabsVoiceSpanish : serverConfig.elevenLabsVoiceEnglish };
+}
+
+export interface Speech extends VoiceTarget {
   audio: ReadableStream<Uint8Array>;
   provider: TtsProviderName;
+  /** Providers tried first that failed — empty when the preferred voice spoke. */
+  failed: TtsProviderName[];
 }
 
 /**
@@ -102,14 +113,17 @@ export async function synthesise(text: string, lang: SpeechLang, style: VoiceSty
   if (providers.length === 0) throw new SpeechError(503, 'No cloud voice is configured.');
   const spoken = prepareForSpeech(text, lang);
   if (!spoken) throw new SpeechError(400, 'Nothing to say.');
+  const failed: TtsProviderName[] = [];
   for (const provider of providers) {
+    const target = voiceTarget(provider, lang);
     try {
-      const res = provider === 'elevenlabs' ? await elevenLabsSpeech(spoken, lang, style) : await openaiSpeech(spoken, lang, style);
-      if (res.ok && res.body) return { audio: res.body, provider };
+      const res = provider === 'elevenlabs' ? await elevenLabsSpeech(spoken, lang, style, target) : await openaiSpeech(spoken, lang, style, target);
+      if (res.ok && res.body) return { audio: res.body, provider, ...target, failed };
       console.error(`${provider} TTS failed`, res.status, await res.text().catch(() => ''));
     } catch (error) {
       console.error(`${provider} TTS error`, error);
     }
+    failed.push(provider);
   }
   throw new SpeechError(502, 'The voice service had a problem.');
 }
