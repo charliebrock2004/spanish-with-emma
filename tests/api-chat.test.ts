@@ -161,3 +161,17 @@ describe('/api/chat', () => {
     expect(captured[0].headers['anthropic-beta']).toBeUndefined();
   });
 });
+
+describe('/api/access', () => {
+  it('accepts only the right code', async () => {
+    vi.resetModules();
+    process.env.APP_ACCESS_CODE = 'paella';
+    const { POST } = await import('@/app/api/access/route');
+    const call = (code?: string) =>
+      POST(new Request('http://localhost:3000/api/access', { method: 'POST', headers: { host: 'localhost:3000', ...(code ? { 'x-access-code': code } : {}) } }));
+    expect((await call()).status).toBe(401);
+    expect((await call('tortilla')).status).toBe(401);
+    expect((await call('paella')).status).toBe(204);
+    delete process.env.APP_ACCESS_CODE;
+  });
+});
