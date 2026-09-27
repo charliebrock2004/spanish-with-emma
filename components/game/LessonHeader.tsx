@@ -2,14 +2,16 @@
 
 import { Icon } from '@/components/ui/Icon';
 import { ProgressBar } from '@/components/ui/primitives';
-import { playerLevel, useGameStore } from '@/store/gameStore';
+import { FlameIcon } from '@/components/game-ui/icons';
+import { comboMultiplier, nextComboStep } from '@/lib/game/economy';
+import { curriculumLevel, useGameStore } from '@/store/gameStore';
 import { voiceService } from '@/services/voice/VoiceService';
 import { cn } from '@/lib/utils';
 
 /** Quick switch between Emma's Spanish-only voice and her Scottish-English explanations. */
 export function VoiceModeToggle() {
   const voiceMode = useGameStore((s) => s.settings.voiceMode);
-  const level = useGameStore(playerLevel);
+  const level = useGameStore(curriculumLevel);
   const updateSettings = useGameStore((s) => s.updateSettings);
   const effective = voiceMode === 'auto' ? (level <= 3 ? 'scottish' : 'spanish') : voiceMode;
   const next = effective === 'spanish' ? 'scottish' : 'spanish';
@@ -48,16 +50,39 @@ export function Hearts({ count, max = 5 }: { count: number; max?: number }) {
   );
 }
 
+/** The combo meter: appears from 2 in a row, and shows the multiplier from 3. */
+export function ComboMeter({ combo }: { combo: number }) {
+  if (combo < 2) return null;
+  const multiplier = comboMultiplier(combo);
+  const next = nextComboStep(combo);
+  return (
+    <span
+      key={multiplier}
+      className={cn(
+        'inline-flex h-9 shrink-0 animate-pop items-center gap-0.5 rounded-full px-2 text-sm font-black tabular-nums shadow-card',
+        multiplier >= 5 ? 'bg-terracotta text-white' : multiplier > 1 ? 'bg-sun text-ink' : 'bg-paper text-ink-soft',
+      )}
+      role="status"
+      aria-label={multiplier > 1 ? `${combo} in a row: ${multiplier} times XP` : `${combo} in a row — ${next! - combo} more for double XP`}
+    >
+      <FlameIcon size={18} className={cn(multiplier > 1 && 'animate-flicker')} />
+      {multiplier > 1 ? `×${multiplier}` : combo}
+    </span>
+  );
+}
+
 export function LessonHeader({
   progress,
   hearts,
   onClose,
   showHearts = true,
+  combo = 0,
 }: {
   progress: number;
   hearts: number;
   onClose: () => void;
   showHearts?: boolean;
+  combo?: number;
 }) {
   return (
     <header className="sticky top-0 z-20 bg-cream/95 backdrop-blur safe-top">
@@ -70,7 +95,8 @@ export function LessonHeader({
         >
           <Icon name="x" size={24} />
         </button>
-        <ProgressBar value={progress} max={1} label="Lesson progress" className="flex-1" />
+        <ProgressBar value={progress} max={1} label="Lesson progress" className="flex-1" tone={comboMultiplier(combo) > 1 ? 'sun' : 'warm'} />
+        <ComboMeter combo={combo} />
         <VoiceModeToggle />
         {showHearts && <Hearts count={hearts} />}
       </div>

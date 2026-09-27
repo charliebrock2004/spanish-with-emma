@@ -10,9 +10,8 @@ import { useReadyPlayer } from '@/components/layout/useReadyPlayer';
 import { ButtonLink } from '@/components/ui/Button';
 import { useVoiceCapabilities } from '@/components/voice/hooks';
 import { useNow } from '@/lib/hooks/useNow';
-import { XP } from '@/lib/progress/xp';
 import { distractorPool, mistakeSession, resolvedMistakeIds, smartReviewSession, type WordLite } from '@/lib/review/build';
-import { playerLevel, useGameStore } from '@/store/gameStore';
+import { curriculumLevel, useGameStore } from '@/store/gameStore';
 import type { Exercise } from '@/types/curriculum';
 import type { VocabLike } from '@/lib/progress/srs';
 
@@ -40,7 +39,7 @@ interface Plan {
 
 function makePlan(mode: ReviewMode, curriculum: WordLite[], now: number, speaking: boolean): Plan {
   const state = useGameStore.getState();
-  const level = playerLevel(state);
+  const level = curriculumLevel(state);
   const pool = distractorPool(state.vocab, curriculum, level);
   const seed = String(now);
   if (mode === 'smart') {
@@ -75,7 +74,7 @@ function EmptyState({ mode }: { mode: ReviewMode }) {
 
 function ReviewRun({ mode, curriculum, now, speaking }: { mode: ReviewMode; curriculum: WordLite[]; now: number; speaking: boolean }) {
   const router = useRouter();
-  const level = useGameStore(playerLevel);
+  const level = useGameStore(curriculumLevel);
   const completeSession = useGameStore((s) => s.completeSession);
   const [plan] = useState(() => makePlan(mode, curriculum, now, speaking));
   const [summary, setSummary] = useState<CompletionSummary | null>(null);
@@ -87,29 +86,30 @@ function ReviewRun({ mode, curriculum, now, speaking }: { mode: ReviewMode; curr
         {
           kind: 'review',
           id: mode,
+          sessionId: result.sessionId,
           title: TITLES[mode],
           accuracy: result.accuracy,
           seconds: result.seconds,
-          xp: XP.reviewComplete,
-          earlierXp: result.answersXp,
+          earlier: result.answers,
+          xpBefore: result.xpBefore,
         },
-        { resolvedMistakes: resolved },
+        { resolvedMistakes: resolved, bestCombo: result.bestCombo },
       );
       const ids = new Set(plan.exercises.flatMap((e) => e.vocabIds));
       const words = plan.pool.filter((w, i, all) => ids.has(w.id) && all.findIndex((x) => x.id === w.id) === i);
       setSummary({
         title: TITLES[mode],
         heading: mode === 'mistakes' ? (resolved.length ? `${resolved.length} mistake${resolved.length === 1 ? '' : 's'} fixed!` : 'Review complete!') : 'Review complete!',
-        xp: result.answersXp + XP.reviewComplete,
+        lines: outcome.lines,
+        total: outcome.total,
         accuracy: result.accuracy,
         seconds: result.seconds,
         perfect: result.perfect,
         streak: outcome.streak,
         words: words.map(({ spanish, english }) => ({ spanish, english })),
-        breakdown: [
-          { label: 'Answers', xp: result.answersXp },
-          { label: 'Review complete', xp: XP.reviewComplete },
-        ],
+        xpBefore: outcome.xpBefore,
+        xpAfter: outcome.xpAfter,
+        bestCombo: result.bestCombo,
       });
     },
     [plan, mode, completeSession],

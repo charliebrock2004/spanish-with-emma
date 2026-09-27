@@ -1,16 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { EmmaBubble } from '@/components/cosmetics/cosmetics';
 import { EmmaFullBody } from '@/components/emma/EmmaFigure';
+import { emmaLine } from '@/components/emma/lines';
+import { CoinIcon, XpIcon } from '@/components/game-ui/icons';
+import { LevelProgressBar } from '@/components/game/LessonComplete';
+import { DailyQuestList } from '@/components/quests/QuestParts';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { Confetti } from '@/components/ui/Confetti';
 import { AnimatedNumber } from '@/components/ui/primitives';
 import type { VocabLike } from '@/lib/progress/srs';
-import type { StreakUpdate } from '@/lib/progress/streak';
-import { XP } from '@/lib/progress/xp';
 import { soundService } from '@/services/sound/SoundService';
 import { voiceService } from '@/services/voice/VoiceService';
 import { useGameStore } from '@/store/gameStore';
+import type { SessionResult } from '@/types/game';
+import { cn } from '@/lib/utils';
 import type { GameDef } from './catalog';
 
 export interface GameOutcome {
@@ -21,71 +26,87 @@ export interface GameOutcome {
   /** Per-word results, fed into spaced review. */
   words: Array<{ word: VocabLike; correct: boolean }>;
   listeningCorrect?: number;
-  /** XP already awarded during the game (session-based games). */
-  earlierXp?: number;
+  /** Longest run of right answers. */
+  bestCombo?: number;
+  /** Earned during the game by answers (games built from lessons). */
+  earlier?: { xp: number; coins: number };
 }
 
 export interface GameSummary extends GameOutcome {
-  xp: number;
-  best: number;
-  newBest: boolean;
-  streak: StreakUpdate;
+  result: SessionResult;
 }
 
-/** Saves a finished game: spaced review, XP, streak, personal best. Call once. */
-export function recordGame(game: GameDef, outcome: GameOutcome): GameSummary {
+/** Saves a finished game: spaced review, rewards, streak, personal best. Call once per play. */
+export function recordGame(game: GameDef, outcome: GameOutcome, play: { sessionId: string; xpBefore: number }): GameSummary {
   const store = useGameStore.getState();
   if (outcome.words.length) store.recordVocab(outcome.words);
-  const xp = XP.gameComplete + Math.min(50, XP.gameCorrect * outcome.correct);
   const result = store.completeSession(
     {
       kind: 'game',
       id: game.id,
+      sessionId: play.sessionId,
       title: game.title,
       accuracy: outcome.answered ? outcome.correct / outcome.answered : 1,
       seconds: outcome.seconds,
-      xp,
-      earlierXp: outcome.earlierXp,
+      earlier: outcome.earlier,
+      xpBefore: play.xpBefore,
     },
     {
       score: outcome.score,
-      speedRoundScore: game.id === 'speed-round' ? outcome.score : undefined,
+      correct: outcome.correct,
+      answered: outcome.answered,
+      // Speed Demon counts right answers, not points.
+      speedRoundScore: game.id === 'speed-round' ? outcome.correct : undefined,
       listeningCorrect: outcome.listeningCorrect,
+      bestCombo: outcome.bestCombo,
     },
   );
-  return { ...outcome, xp: xp + (outcome.earlierXp ?? 0), best: result.best, newBest: result.newBest, streak: result.streak };
+  return { ...outcome, result };
 }
 
-function emmaVerdict(summary: GameSummary) {
+function emmaVerdict(summary: GameSummary, record: boolean) {
   const accuracy = summary.answered ? summary.correct / summary.answered : 1;
-  if (summary.newBest && summary.best > 0) return '¡Nuevo récord! Your best score yet.';
+  if (record) return emmaLine('newRecord');
   if (accuracy >= 0.9) return '¡Increíble! Your brain is on fire today.';
   if (accuracy >= 0.7) return '¡Muy bien! Quick and accurate.';
   return 'Good practice — the tricky ones will stick next time.';
 }
 
 export function GameResults({ game, summary, onReplay }: { game: GameDef; summary: GameSummary; onReplay: () => void }) {
-  const [line] = useState(() => emmaVerdict(summary));
+  const { result } = summary;
+  // A record needs something to beat: the very first game just sets the bar.
+  const record = result.lines.some((l) => l.label === 'New record');
+  const [line] = useState(() => emmaVerdict(summary, record));
+  const quests = useGameStore((s) => s.quests);
+  const setToastsPaused = useGameStore((s) => s.setToastsPaused);
   const missed = summary.words
     .filter((w) => !w.correct)
     .filter((w, i, all) => all.findIndex((x) => x.word.id === w.word.id) === i)
     .slice(0, 8);
 
   useEffect(() => {
-    soundService.play(summary.newBest ? 'levelUp' : 'complete');
+    soundService.play(record ? 'record' : 'complete');
+    const coin = window.setTimeout(() => soundService.play('coin'), 900);
     const t = window.setTimeout(() => void voiceService.say(line.replace(/¡[^!]*!/, (m) => `*${m}*`)), 700);
-    return () => window.clearTimeout(t);
-  }, [line, summary.newBest]);
+    setToastsPaused(true);
+    const resume = window.setTimeout(() => setToastsPaused(false), 2400);
+    return () => {
+      window.clearTimeout(coin);
+      window.clearTimeout(t);
+      window.clearTimeout(resume);
+      setToastsPaused(false);
+    };
+  }, [line, record, setToastsPaused]);
 
   return (
     <div className="paper flex min-h-dvh flex-col safe-top">
-      {summary.newBest && summary.best > 0 && <Confetti intensity={120} />}
+      {record && <Confetti intensity={140} />}
       <div className="mx-auto w-full max-w-xl flex-1 px-5 pt-6 pb-4">
         <div className="flex items-end gap-3">
-          <EmmaFullBody height={180} celebrating={summary.newBest} className="w-auto shrink-0" />
-          <div className="mb-8 animate-pop rounded-3xl rounded-bl-md bg-paper px-4 py-3 shadow-card">
+          <EmmaFullBody height={180} celebrating={record || summary.correct === summary.answered} className="w-auto shrink-0" />
+          <EmmaBubble className="mb-8 animate-pop">
             <p className="text-[17px] leading-snug font-bold">{line}</p>
-          </div>
+          </EmmaBubble>
         </div>
 
         <p className="mt-4 flex items-center gap-2 text-sm font-extrabold tracking-[0.14em] text-ink-soft uppercase">
@@ -96,29 +117,67 @@ export function GameResults({ game, summary, onReplay }: { game: GameDef; summar
             <AnimatedNumber value={summary.score} duration={1100} />
           </p>
           <p className="text-ink-soft">points</p>
-          {summary.newBest && summary.best > 0 ? (
-            <span className="ml-auto animate-pop rounded-full bg-sun px-3 py-1 text-sm font-black">🏆 New best</span>
+          {record ? (
+            <span className="ml-auto animate-slam rounded-xl border-4 border-terracotta px-2.5 py-0.5 font-display text-lg font-semibold tracking-wide text-terracotta uppercase [animation-delay:600ms] rotate-[6deg]">
+              New record
+            </span>
           ) : (
-            <span className="ml-auto text-sm font-bold text-ink-soft">Best: {summary.best}</span>
+            <span className="ml-auto text-sm font-bold text-ink-soft">Best: {result.best}</span>
           )}
         </div>
 
         <div className="mt-5 grid grid-cols-3 gap-2">
-          <div className="rounded-2xl bg-sun-light px-3 py-3 text-center">
-            <p className="text-xs font-extrabold tracking-wide text-honey-dark uppercase">XP</p>
-            <p className="mt-1 text-2xl font-black">+{summary.xp}</p>
+          <div className="rounded-2xl bg-sun-light px-2 py-3 text-center">
+            <p className="flex items-center justify-center gap-1 text-xs font-extrabold tracking-wide text-honey-dark uppercase">
+              <XpIcon size={14} /> XP
+            </p>
+            <p className="mt-1 text-2xl font-black">
+              +<AnimatedNumber value={result.total.xp} duration={1300} />
+            </p>
           </div>
-          <div className="rounded-2xl bg-sage-light px-3 py-3 text-center">
+          <div className="rounded-2xl bg-[#fff4d6] px-2 py-3 text-center">
+            <p className="flex items-center justify-center gap-1 text-xs font-extrabold tracking-wide text-[#8f5d0f] uppercase">
+              <CoinIcon size={14} /> Coins
+            </p>
+            <p className="mt-1 text-2xl font-black">
+              +<AnimatedNumber value={result.total.coins} duration={1300} />
+            </p>
+          </div>
+          <div className="rounded-2xl bg-sage-light px-2 py-3 text-center">
             <p className="text-xs font-extrabold tracking-wide text-sage-dark uppercase">Correct</p>
             <p className="mt-1 text-2xl font-black tabular-nums">
               {summary.correct}/{summary.answered}
             </p>
           </div>
-          <div className="rounded-2xl bg-sky-light px-3 py-3 text-center">
-            <p className="text-xs font-extrabold tracking-wide text-[#3d6a8c] uppercase">Streak</p>
-            <p className="mt-1 text-2xl font-black">🔥 {summary.streak.state.current}</p>
-          </div>
         </div>
+
+        <ul className="mt-3 divide-y divide-sand/60 rounded-2xl bg-paper px-4 shadow-card" aria-label="Rewards">
+          {result.lines.map((row, i) => (
+            <li key={row.label} className="flex animate-enter items-center justify-between gap-3 py-2.5" style={{ animationDelay: `${250 + i * 130}ms` }}>
+              <span className={cn('font-bold', row.label === 'New record' ? 'text-terracotta' : 'text-ink-soft')}>{row.label === 'New record' ? '🏆 New record' : row.label}</span>
+              <span className="flex items-center gap-2 font-black">
+                {row.xp > 0 && <span className="text-honey-dark">+{row.xp} XP</span>}
+                {row.coins > 0 && (
+                  <span className="inline-flex items-center gap-0.5 text-[#8f5d0f]">
+                    +{row.coins} <CoinIcon size={15} />
+                  </span>
+                )}
+              </span>
+            </li>
+          ))}
+          {summary.bestCombo !== undefined && summary.bestCombo >= 3 && (
+            <li className="py-2.5 text-sm text-ink-soft">🔥 Best combo: {summary.bestCombo} in a row</li>
+          )}
+        </ul>
+
+        <LevelProgressBar from={result.xpBefore} to={result.xpAfter} className="mt-3" />
+
+        {quests && (
+          <section className="mt-4 rounded-2xl bg-paper px-4 py-3 shadow-card" aria-label="Today's quests">
+            <p className="text-xs font-extrabold tracking-[0.14em] text-ink-soft uppercase">Today&rsquo;s quests</p>
+            <DailyQuestList daily={quests} compact />
+          </section>
+        )}
 
         {missed.length > 0 && (
           <div className="mt-5">
@@ -142,7 +201,7 @@ export function GameResults({ game, summary, onReplay }: { game: GameDef; summar
           Play again
         </Button>
         <ButtonLink href="/review" variant="ghost" size="md" block>
-          Back to review
+          Back to games
         </ButtonLink>
       </div>
     </div>

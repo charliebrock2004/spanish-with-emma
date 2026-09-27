@@ -44,13 +44,15 @@ export function LessonPlayer({
       const newLevel = levelDone && !store.completedLevels.includes(lesson.level);
       const outcome = store.completeLesson({
         lessonId: lesson.id,
+        sessionId: session.sessionId,
         title: lesson.title,
         level: lesson.level,
         accuracy: session.accuracy,
         perfect: session.perfect,
         seconds: session.seconds,
-        answersXp: session.answersXp,
+        answers: session.answers,
         levelCompleted: levelDone ? lesson.level : null,
+        xpBefore: session.xpBefore,
       });
       const after = useGameStore.getState();
       const journey = computeJourney(summaries, after.completedLessons, after.profile.placementLevel);
@@ -58,18 +60,19 @@ export function LessonPlayer({
         next: journey.current,
         summary: {
           title: lesson.title,
-          xp: outcome.totalXp,
+          lines: outcome.lines,
+          total: outcome.total,
           accuracy: session.accuracy,
           seconds: session.seconds,
           perfect: session.perfect,
+          stars: outcome.stars,
+          firstPerfect: outcome.firstPerfect,
           streak: outcome.streak,
           words: lesson.words,
-          breakdown: [
-            { label: 'Answers', xp: session.answersXp },
-            { label: 'Lesson complete', xp: outcome.bonus.completion },
-            { label: 'Perfect lesson', xp: outcome.bonus.perfect },
-            { label: `Level ${lesson.level} milestone`, xp: outcome.bonus.milestone },
-          ],
+          xpBefore: outcome.xpBefore,
+          xpAfter: outcome.xpAfter,
+          chestId: outcome.chestId,
+          bestCombo: session.bestCombo,
         },
       });
       if (newLevel) {

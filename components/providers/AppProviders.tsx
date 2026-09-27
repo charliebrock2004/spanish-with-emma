@@ -3,12 +3,13 @@
 import { createContext, useContext, useEffect, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import type { Capabilities } from '@/types/capabilities';
-import { playerLevel, useGameStore } from '@/store/gameStore';
+import { curriculumLevel, useGameStore } from '@/store/gameStore';
 import { voiceService } from '@/services/voice/VoiceService';
 import { soundService } from '@/services/sound/SoundService';
 import { musicService } from '@/services/sound/MusicService';
 import { useVoiceStatus } from '@/components/voice/hooks';
-import { Toaster } from './Toaster';
+import { CelebrationHost } from '@/components/celebrate/CelebrationHost';
+import { ChestOverlay } from '@/components/celebrate/ChestOverlay';
 
 const CapabilitiesContext = createContext<Capabilities>({
   aiChat: false,
@@ -31,7 +32,7 @@ function StoreHydrator() {
 /** Keeps the voice + sound services in step with the player's settings. */
 function ServicesBridge({ capabilities }: { capabilities: Capabilities }) {
   const settings = useGameStore((s) => s.settings);
-  const level = useGameStore(playerLevel);
+  const level = useGameStore(curriculumLevel);
 
   useEffect(() => {
     const mode = settings.voiceMode === 'auto' ? (level <= 3 ? 'scottish' : 'spanish') : settings.voiceMode;
@@ -47,12 +48,39 @@ function ServicesBridge({ capabilities }: { capabilities: Capabilities }) {
       accessCode: settings.accessCode,
     });
     soundService.setEnabled(settings.soundEffects);
+    soundService.setVolume(settings.soundVolume);
   }, [settings, level, capabilities]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('reduce-motion', settings.reduceMotion);
   }, [settings.reduceMotion]);
 
+  // The equipped colour theme re-points the accent colours (see globals.css).
+  const theme = useGameStore((s) => s.inventory.equipped.theme);
+  useEffect(() => {
+    if (theme && theme !== 'theme-terracotta') document.documentElement.dataset.theme = theme;
+    else delete document.documentElement.dataset.theme;
+  }, [theme]);
+
+  return null;
+}
+
+/** New daily quests (and a new weekly challenge) appear when the app comes back on a new day. */
+function DayWatcher() {
+  const refreshDay = useGameStore((s) => s.refreshDay);
+  const hydrated = useGameStore((s) => s.hydrated);
+  useEffect(() => {
+    if (!hydrated) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshDay();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [hydrated, refreshDay]);
   return null;
 }
 
@@ -111,8 +139,10 @@ export function AppProviders({ capabilities, children }: { capabilities: Capabil
       <ServicesBridge capabilities={capabilities} />
       <AudioUnlocker />
       <MusicDirector />
+      <DayWatcher />
       {children}
-      <Toaster />
+      <CelebrationHost />
+      <ChestOverlay />
     </CapabilitiesContext.Provider>
   );
 }

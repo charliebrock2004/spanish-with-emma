@@ -1,6 +1,6 @@
 /**
- * Emma's voice: warm, playful, patient, occasionally cheeky — never gushing
- * over every answer. Lines rotate so she doesn't repeat herself.
+ * Emma's voice: warm, playful, patient, a wee bit cheeky and Scottish — never
+ * gushing over every answer. Lines rotate so she doesn't repeat herself.
  */
 const LINES = {
   correct: ['¡Muy bien!', "That's it.", 'Correct.', 'Nice.', '¡Eso es!', 'Spot on.', 'Yes!', '¡Bien!', 'Exactly.'],
@@ -21,9 +21,19 @@ const LINES = {
   speakRetry: ["Almost — try that once more, nice and clear.", "I didn't quite catch that. One more time?", 'Close! Give it another go.'],
   speakGiveUp: ["Let's move on — we'll practise that one again later.", "No stress — I'll bring this one back in your review."],
   lessonDone: ['¡Lo has hecho! Lesson complete.', "That's the lesson done — lovely work.", 'Done! You get better every single day.'],
-  perfectLesson: ['A perfect lesson. ¡Increíble!', "Not a single mistake. I'm genuinely impressed."],
+  perfectLesson: ['A perfect lesson. ¡Increíble!', "Not a single mistake. I'm genuinely impressed.", "Flawless. I'm telling everyone."],
   harder: ["You're flying — I'll make things a wee bit harder. 🔥"],
   easier: ["Let's slow down a touch and practise a bit more. 🌱"],
+  // ─── Game moments ───
+  combo3: ['¡Toma! Three in a row.', 'Combo! Keep it going.', "That's a combo — double XP!"],
+  combo5: ["×3! You're on fire 🔥", 'Five in a row — ¡madre mía!', "Oh, you're good at this."],
+  combo10: ['TEN in a row?! Who even are you? ×5!', '¡Imparable! Ten in a row.', "Ten! I'm actually speechless. Well — almost."],
+  levelUp: ['Level up! Look at you go.', '¡Subes de nivel! That was quick.', 'Another level. You’re getting dangerous.'],
+  purchase: ['Oh, I love it. Very me.', '¡Qué bonito! Good choice.', 'Honestly? Great taste.'],
+  chest: ['Ooh, what have we got…', 'Go on, open it!', 'I love this bit.'],
+  welcomeBack: ["You're back! No guilt — let's just pick up where we left off.", '¡Hola de nuevo! I kept your seat warm.'],
+  todayDone: ["That's you done for today. Go have a cup of tea — you've earned it.", "Everything done! ¡Qué crack! Same time tomorrow?"],
+  newRecord: ['¡Nuevo récord! Your best score yet.', 'A new record! Frame that one.'],
 } as const;
 
 export type LineKind = keyof typeof LINES;
@@ -37,4 +47,12 @@ export function emmaLine(kind: LineKind): string {
   const line = options[Math.floor(Math.random() * options.length)];
   lastUsed.set(kind, line);
   return line;
+}
+
+/** Emma's line when a combo crosses a multiplier step (3, 5, 10). */
+export function comboLine(combo: number): string | null {
+  if (combo === 3) return emmaLine('combo3');
+  if (combo === 5) return emmaLine('combo5');
+  if (combo === 10) return emmaLine('combo10');
+  return null;
 }

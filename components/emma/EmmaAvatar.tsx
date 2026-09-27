@@ -1,6 +1,9 @@
+'use client';
+
 /* eslint-disable @next/next/no-img-element -- pre-optimised WebP crops with explicit srcset */
+import { FrameRing, sceneFor, useEquipped } from '@/components/cosmetics/cosmetics';
 import { cn } from '@/lib/utils';
-import { avatarSrc, BADGE_FOR_STATE, MOTION_FOR_STATE, POSE_FOR_STATE, type EmmaState } from './emma';
+import { avatarSrc, BADGE_FOR_STATE, MOTION_FOR_STATE, POSE_FOR_STATE, STATE_LABEL, type EmmaState } from './emma';
 
 interface EmmaAvatarProps {
   state?: EmmaState;
@@ -11,9 +14,15 @@ interface EmmaAvatarProps {
   /** Hide from assistive tech when a caption already names Emma. */
   decorative?: boolean;
   priority?: boolean;
+  /** Show the equipped avatar frame (profile-style displays). */
+  framed?: boolean;
+  /** Preview a cosmetic instead of what's equipped. */
+  outfit?: string;
+  background?: string;
+  frame?: string;
 }
 
-/** Emma's round avatar — the same character everywhere, with state-driven motion. */
+/** Emma's round avatar — the same character everywhere, dressed in what the player picked. */
 export function EmmaAvatar({
   state = 'happy',
   size = 56,
@@ -21,19 +30,52 @@ export function EmmaAvatar({
   className,
   decorative = false,
   priority = false,
+  framed = false,
+  outfit,
+  background,
+  frame,
 }: EmmaAvatarProps) {
+  const equipped = useEquipped();
   const pose = POSE_FOR_STATE[state];
-  const { src, srcSet } = avatarSrc(pose);
+  const { src, srcSet } = avatarSrc(pose, outfit ?? equipped.outfit);
   const badge = BADGE_FOR_STATE[state];
   const motion = animated ? MOTION_FOR_STATE[state] : '';
+  const scene = sceneFor(background ?? equipped.background);
+
+  const disc = (
+    <div
+      className={cn(
+        'relative h-full w-full overflow-hidden rounded-full',
+        !framed && 'ring-2 ring-paper',
+        !framed && state === 'listening' && 'ring-terracotta/60',
+        !framed && state === 'celebrating' && 'ring-sun',
+        motion,
+      )}
+      style={{ background: scene.disc }}
+    >
+      <img
+        src={src}
+        srcSet={srcSet}
+        sizes={`${size}px`}
+        alt=""
+        width={size}
+        height={size}
+        loading={priority ? 'eager' : 'lazy'}
+        decoding="async"
+        draggable={false}
+        className="h-full w-full object-cover"
+      />
+    </div>
+  );
 
   return (
     <div
       className={cn('relative inline-block shrink-0', className)}
       style={{ width: size, height: size }}
       role={decorative ? undefined : 'img'}
-      aria-label={decorative ? undefined : `Emma, ${state}`}
+      aria-label={decorative ? undefined : STATE_LABEL[state]}
       aria-hidden={decorative || undefined}
+      data-emma-state={state}
     >
       {state === 'listening' && (
         <>
@@ -41,29 +83,16 @@ export function EmmaAvatar({
           <span className="absolute inset-0 animate-pulse-ring rounded-full bg-terracotta/30 [animation-delay:0.6s]" />
         </>
       )}
-      <div
-        className={cn(
-          'relative h-full w-full overflow-hidden rounded-full bg-gradient-to-br from-sun-light via-cream to-terracotta-light ring-2 ring-paper',
-          state === 'listening' && 'ring-terracotta/60',
-          state === 'celebrating' && 'ring-sun',
-          motion,
-        )}
-      >
-        <img
-          src={src}
-          srcSet={srcSet}
-          sizes={`${size}px`}
-          alt=""
-          width={size}
-          height={size}
-          loading={priority ? 'eager' : 'lazy'}
-          decoding="async"
-          draggable={false}
-          className="h-full w-full object-cover"
-        />
-      </div>
-      {badge && (
+      {framed ? (
+        <FrameRing id={frame ?? equipped.frame} size={size}>
+          {disc}
+        </FrameRing>
+      ) : (
+        disc
+      )}
+      {badge && state !== 'speaking' && (
         <span
+          key={state}
           className="absolute -right-1 -bottom-1 grid animate-pop place-items-center rounded-full bg-paper shadow-card"
           style={{ width: Math.max(20, size * 0.36), height: Math.max(20, size * 0.36), fontSize: Math.max(11, size * 0.2) }}
           aria-hidden

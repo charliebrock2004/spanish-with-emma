@@ -19,7 +19,11 @@ export interface Settings {
   speechRate: number;
   difficulty: DifficultySetting;
   soundEffects: boolean;
+  /** Sound-effect volume, 0–1. */
+  soundVolume: number;
   music: boolean;
+  /** Emma's delivery follows the moment (brighter when celebrating, softer when correcting). */
+  expressiveVoice: boolean;
   dailyGoalMinutes: number;
   showPronunciation: PronunciationDisplay;
   autoplayAudio: boolean;

@@ -11,10 +11,11 @@ import { soundService } from '@/services/sound/SoundService';
 import { voiceService } from '@/services/voice/VoiceService';
 import type { ArcadeProps } from './types';
 import { GameShell } from './GameShell';
+import { useCombo } from './useCombo';
 
 const ROUNDS = 10;
 
-/** Emma says a word; pick what it means. 10 points each. */
+/** Emma says a word; pick what it means. 10 points each, multiplied by the combo. */
 export function ListenPickGame({ game, pool, seed, onFinish, onClose }: ArcadeProps) {
   const [questions] = useState(() => {
     const random = seededRandom(seed);
@@ -25,6 +26,8 @@ export function ListenPickGame({ game, pool, seed, onFinish, onClose }: ArcadePr
   const [index, setIndex] = useState(0);
   const [chosen, setChosen] = useState<string | null>(null);
   const [score, setScore] = useState(0);
+  const combo = useCombo();
+  const points = useRef(0);
   const { speaking } = useVoiceStatus();
   const results = useRef<Array<{ word: VocabLike; correct: boolean }>>([]);
   const started = useRef(0);
@@ -57,7 +60,10 @@ export function ListenPickGame({ game, pool, seed, onFinish, onClose }: ArcadePr
     setChosen(option);
     results.current.push({ word: q.word, correct });
     soundService.play(correct ? 'correct' : 'incorrect');
-    if (correct) setScore((s) => s + 10);
+    if (correct) {
+      points.current += 10 * combo.hit();
+      setScore(points.current);
+    } else combo.miss();
     timers.current.push(
       window.setTimeout(
         () => {
@@ -68,7 +74,8 @@ export function ListenPickGame({ game, pool, seed, onFinish, onClose }: ArcadePr
           }
           const right = results.current.filter((r) => r.correct).length;
           onFinish({
-            score: right * 10,
+            score: points.current,
+            bestCombo: combo.best.current,
             correct: right,
             answered: results.current.length,
             seconds: Math.round((Date.now() - started.current) / 1000),
@@ -84,7 +91,7 @@ export function ListenPickGame({ game, pool, seed, onFinish, onClose }: ArcadePr
   if (!q) return null;
 
   return (
-    <GameShell game={game} progress={(index + (chosen ? 1 : 0)) / questions.length} score={score} onClose={onClose}>
+    <GameShell game={game} progress={(index + (chosen ? 1 : 0)) / questions.length} score={score} combo={combo.combo} onClose={onClose}>
       <p className="text-center text-sm font-extrabold text-ink-soft">
         Word {index + 1} of {questions.length}
       </p>

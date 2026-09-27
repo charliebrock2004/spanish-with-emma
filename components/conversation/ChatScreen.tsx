@@ -15,12 +15,13 @@ import { openingFor, type TopicDef } from '@/data/conversations/topics';
 import { ChatRequestError, fetchEmmaReply } from '@/lib/conversation/aiClient';
 import { currentHint, respondGuided, startGuided, type GuidedState } from '@/lib/conversation/guided';
 import type { GuidedScenario, Line } from '@/lib/conversation/types';
-import { XP } from '@/lib/progress/xp';
+import { conversationReward } from '@/lib/game/economy';
+import { RewardChips } from '@/components/game-ui/parts';
 import { useNow } from '@/lib/hooks/useNow';
 import { personalise, sleep, uid } from '@/lib/utils';
 import { soundService } from '@/services/sound/SoundService';
 import { voiceService } from '@/services/voice/VoiceService';
-import { playerLevel, useGameStore } from '@/store/gameStore';
+import { curriculumLevel, useGameStore } from '@/store/gameStore';
 import type { ChatTurn } from '@/types/chat';
 import type { LevelId } from '@/types/curriculum';
 import type { ConversationRecord } from '@/types/progress';
@@ -35,7 +36,6 @@ type Msg =
   | { id: string; role: 'note'; text: string; retry?: boolean };
 type NewMsg = Msg extends infer M ? (M extends Msg ? Omit<M, 'id'> : never) : never;
 
-const MAX_TURN_XP = 50;
 
 export function ChatScreen({ scenario, topic }: { scenario?: GuidedScenario; topic?: TopicDef }) {
   const caps = useCapabilities();
@@ -102,7 +102,7 @@ function AiChatUnavailable() {
 function Conversation({ scenario, topic }: { scenario?: GuidedScenario; topic?: TopicDef }) {
   const router = useRouter();
   const name = useGameStore((s) => s.profile.name);
-  const level = useGameStore(playerLevel);
+  const level = useGameStore(curriculumLevel);
   const accessCode = useGameStore((s) => s.settings.accessCode);
   const autoplay = useGameStore((s) => s.settings.autoplayAudio);
   const pausedUntil = useGameStore((s) => s.settings.speakingPausedUntil);
@@ -318,7 +318,7 @@ function Conversation({ scenario, topic }: { scenario?: GuidedScenario; topic?: 
 
   const playerTurns = messages.filter((m) => m.role === 'player').length;
   const corrections = messages.filter((m): m is Extract<Msg, { role: 'correction' }> => m.role === 'correction' && m.corrected !== '');
-  const xp = Math.min(MAX_TURN_XP, playerTurns * XP.conversationTurn) + (playerTurns >= 4 ? XP.conversationComplete : 0);
+  const reward = conversationReward(playerTurns).total;
 
   const save = () => {
     if (saved.current || playerTurns === 0) return;
@@ -339,9 +339,10 @@ function Conversation({ scenario, topic }: { scenario?: GuidedScenario; topic?: 
         kind: 'conversation',
         id: record.scenarioId,
         title: `Chat: ${title}`,
+        sessionId: recordId.current,
         accuracy: playerTurns ? Math.max(0, 1 - corrections.length / playerTurns) : 1,
         seconds: Math.round((Date.now() - started.current) / 1000),
-        xp,
+        xpBefore: useGameStore.getState().xp,
       },
       { conversation: record, conversationTurns: playerTurns },
     );
@@ -469,7 +470,8 @@ function Conversation({ scenario, topic }: { scenario?: GuidedScenario; topic?: 
             You replied {playerTurns} time{playerTurns === 1 ? '' : 's'}
             {corrections.length > 0 && ` · ${corrections.length} thing${corrections.length === 1 ? '' : 's'} to practise`}.
           </p>
-          <p className="mt-3 inline-flex rounded-full bg-sun px-4 py-1.5 font-black">+{xp} XP</p>
+          <RewardChips xp={reward.xp} coins={reward.coins} size="lg" className="mt-3 justify-center" />
+          {playerTurns < 4 && <p className="mt-2 text-xs font-bold text-ink-faint">Reply {4 - playerTurns} more time{4 - playerTurns === 1 ? '' : 's'} for the full conversation bonus.</p>}
         </div>
         {corrections.length > 0 && (
           <div className="mt-5 rounded-2xl bg-cream px-4 py-3">

@@ -5,6 +5,8 @@ import { EmmaAvatar } from '@/components/emma/EmmaAvatar';
 import { EmmaText } from '@/components/emma/EmmaText';
 import { Button } from '@/components/ui/Button';
 import { SpeakerButton } from '@/components/voice/SpeakerButton';
+import { CoinIcon, XpIcon } from '@/components/game-ui/icons';
+import { comboMultiplier } from '@/lib/game/economy';
 import { cn } from '@/lib/utils';
 
 export interface Feedback {
@@ -16,6 +18,15 @@ export interface Feedback {
   /** Extra explanation or correction (Emma-markup). */
   note?: string;
   xp: number;
+  coins: number;
+  /** XP was doubled by a boost. */
+  boosted: boolean;
+  /** Correct answers in a row (0 after a mistake). */
+  combo: number;
+  /** This answer raised the combo multiplier. */
+  comboStep: boolean;
+  /** A near miss (typo, accents, almost-right pronunciation). */
+  almost: boolean;
   canRetry: boolean;
 }
 
@@ -33,6 +44,16 @@ export function FeedbackPanel({
 }) {
   const continueRef = useRef<HTMLButtonElement>(null);
   const { correct } = feedback;
+  const multiplier = comboMultiplier(feedback.combo);
+  const emmaState = correct
+    ? feedback.comboStep
+      ? feedback.combo >= 10
+        ? 'celebrating'
+        : 'excited'
+      : 'correct'
+    : feedback.almost
+      ? 'almost'
+      : 'wrong';
 
   useEffect(() => {
     const t = window.setTimeout(() => continueRef.current?.focus({ preventScroll: true }), 80);
@@ -61,7 +82,7 @@ export function FeedbackPanel({
     >
       <div className="mx-auto max-w-xl">
         <div className="flex items-start gap-3">
-          <EmmaAvatar state={correct ? 'celebrating' : 'encouraging'} size={52} />
+          <EmmaAvatar state={emmaState} size={52} />
           <div className="min-w-0 flex-1 pt-1">
             <p className={cn('text-[21px] leading-tight font-extrabold', correct ? 'text-sage-dark' : 'text-honey-dark')}>
               <EmmaText text={feedback.title} name={name} />
@@ -86,7 +107,31 @@ export function FeedbackPanel({
             )}
           </div>
           {feedback.xp > 0 && (
-            <span className="shrink-0 animate-pop rounded-full bg-sun px-2.5 py-1 text-sm font-black text-ink shadow-card">+{feedback.xp} XP</span>
+            <span className="flex shrink-0 flex-col items-end gap-1">
+              <span className="relative inline-flex animate-pop items-center gap-1 rounded-full bg-sun px-2.5 py-1 text-sm font-black text-ink shadow-card">
+                +{feedback.xp} XP
+                {feedback.boosted && <span aria-label="boosted">⚡</span>}
+                <span className="pointer-events-none absolute -top-1 right-2 animate-rise" aria-hidden>
+                  <XpIcon size={16} />
+                </span>
+              </span>
+              {feedback.coins > 0 && (
+                <span className="inline-flex animate-pop items-center gap-1 rounded-full bg-[#fff4d6] px-2 py-0.5 text-xs font-black text-[#8f5d0f] [animation-delay:120ms]">
+                  +{feedback.coins} <CoinIcon size={14} />
+                  <span className="sr-only">coin{feedback.coins === 1 ? '' : 's'}</span>
+                </span>
+              )}
+              {multiplier > 1 && (
+                <span
+                  className={cn(
+                    'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-black tracking-wide uppercase',
+                    feedback.comboStep ? 'animate-slam bg-terracotta text-white' : 'bg-terracotta-light text-terracotta-dark',
+                  )}
+                >
+                  ×{multiplier} combo
+                </span>
+              )}
+            </span>
           )}
         </div>
         <div className="mt-5 flex gap-3">

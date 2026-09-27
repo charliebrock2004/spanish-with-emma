@@ -9,11 +9,11 @@ import { useVoiceCapabilities } from '@/components/voice/hooks';
 import { gameWords, MIN_GAME_WORDS, type WordLite } from '@/lib/review/build';
 import { seededRandom, shuffle } from '@/lib/utils';
 import { voiceService } from '@/services/voice/VoiceService';
-import { playerLevel, useGameStore } from '@/store/gameStore';
+import { curriculumLevel, useGameStore } from '@/store/gameStore';
 import type { Exercise, TaggedExercise } from '@/types/curriculum';
 import { GAME_BY_ID, MIN_CONVERSATIONS, MIN_SENTENCES, type GameDef, type GameId } from './catalog';
 import { GameResults, recordGame, type GameOutcome, type GameSummary } from './GameResults';
-import { GameIntro, GameLocked } from './GameShell';
+import { CountdownScreen, GameIntro, GameLocked } from './GameShell';
 import { ListenPickGame } from './ListenPickGame';
 import { SpeedRoundGame } from './SpeedRoundGame';
 import type { ArcadeProps } from './types';
@@ -45,10 +45,11 @@ export function GameScreen({
   return <LessonGame game={game} words={words ?? []} exercises={exercises ?? []} />;
 }
 
-/** Intro → play → results loop shared by every game. */
+/** Intro → 3-2-1 → play → results loop shared by every game. */
 function usePhases() {
-  const [phase, setPhase] = useState<'intro' | 'play' | 'done'>('intro');
+  const [phase, setPhase] = useState<'intro' | 'countdown' | 'play' | 'done'>('intro');
   const [seed, setSeed] = useState(0);
+  const [xpBefore, setXpBefore] = useState(0);
   const [summary, setSummary] = useState<GameSummary | null>(null);
   return {
     phase,
@@ -58,10 +59,12 @@ function usePhases() {
       voiceService.unlock();
       setSummary(null);
       setSeed(Date.now());
-      setPhase('play');
+      setXpBefore(useGameStore.getState().xp);
+      setPhase('countdown');
     },
+    go: () => setPhase('play'),
     finish: (game: GameDef, outcome: GameOutcome) => {
-      setSummary(recordGame(game, outcome));
+      setSummary(recordGame(game, outcome, { sessionId: `${game.id}-${seed}`, xpBefore }));
       setPhase('done');
     },
   };
@@ -71,7 +74,7 @@ function ArcadeGame({ game, canSpeak }: { game: GameDef; canSpeak: boolean }) {
   const router = useRouter();
   const best = useGameStore((s) => s.gameBests[game.id]);
   const [pool] = useState(() => gameWords(useGameStore.getState().vocab));
-  const { phase, seed, summary, start, finish } = usePhases();
+  const { phase, seed, summary, start, go, finish } = usePhases();
 
   if (pool.length < MIN_GAME_WORDS) {
     return (
@@ -92,6 +95,7 @@ function ArcadeGame({ game, canSpeak }: { game: GameDef; canSpeak: boolean }) {
     );
   }
   if (phase === 'intro') return <GameIntro game={game} best={best} onStart={start} />;
+  if (phase === 'countdown') return <CountdownScreen game={game} onDone={go} />;
   if (phase === 'done' && summary) return <GameResults game={game} summary={summary} onReplay={start} />;
 
   const Game = ARCADE[game.id]!;
@@ -105,10 +109,10 @@ type LessonExercise = Exercise & { lessonId: string };
 
 function LessonGame({ game, words, exercises }: { game: GameDef; words: WordLite[]; exercises: LessonExercise[] }) {
   const router = useRouter();
-  const level = useGameStore(playerLevel);
+  const level = useGameStore(curriculumLevel);
   const completed = useGameStore((s) => s.completedLessons);
   const best = useGameStore((s) => s.gameBests[game.id]);
-  const { phase, seed, summary, start, finish } = usePhases();
+  const { phase, seed, summary, start, go, finish } = usePhases();
 
   const available = useMemo(() => exercises.filter((e) => completed[e.lessonId]), [exercises, completed]);
   const picked = useMemo(
@@ -131,17 +135,20 @@ function LessonGame({ game, words, exercises }: { game: GameDef; words: WordLite
     );
   }
   if (phase === 'intro') return <GameIntro game={game} best={best} onStart={start} />;
+  if (phase === 'countdown') return <CountdownScreen game={game} onDone={go} />;
   if (phase === 'done' && summary) return <GameResults game={game} summary={summary} onReplay={start} />;
 
   const onFinish = (result: SessionResult) => {
     const correct = Math.round(result.accuracy * picked.length);
     finish(game, {
-      score: correct * 10 + (result.perfect ? 20 : 0),
+      // Points for each one right first time, a bonus for a perfect round and for combos.
+      score: correct * 10 + (result.perfect ? 20 : 0) + result.bestCombo * 5,
       correct,
       answered: picked.length,
       seconds: result.seconds,
       words: [],
-      earlierXp: result.answersXp,
+      bestCombo: result.bestCombo,
+      earlier: result.answers,
     });
   };
 

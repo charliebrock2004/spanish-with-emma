@@ -20,7 +20,18 @@ interface Particle {
  * A tasteful confetti burst on a canvas overlay. Renders nothing when the
  * player prefers reduced motion.
  */
-export function Confetti({ burst = 1, intensity = 90, origin = 0.35 }: { burst?: number; intensity?: number; origin?: number }) {
+export function Confetti({
+  burst = 1,
+  intensity = 90,
+  origin = 0.35,
+  className = 'z-[60]',
+}: {
+  burst?: number;
+  intensity?: number;
+  origin?: number;
+  /** Stacking (e.g. above an overlay). */
+  className?: string;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -91,5 +102,5 @@ export function Confetti({ burst = 1, intensity = 90, origin = 0.35 }: { burst?:
     };
   }, [burst, intensity, origin]);
 
-  return <canvas ref={canvasRef} className="pointer-events-none fixed inset-0 z-[60] h-full w-full" aria-hidden />;
+  return <canvas ref={canvasRef} className={`pointer-events-none fixed inset-0 h-full w-full ${className}`} aria-hidden />;
 }

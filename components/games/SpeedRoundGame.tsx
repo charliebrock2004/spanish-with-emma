@@ -7,6 +7,7 @@ import { cn, seededRandom } from '@/lib/utils';
 import { soundService } from '@/services/sound/SoundService';
 import type { ArcadeProps } from './types';
 import { GameShell } from './GameShell';
+import { useCombo } from './useCombo';
 import { useCountdown } from './useCountdown';
 
 function questionMaker(pool: VocabLike[], seed: number) {
@@ -23,7 +24,8 @@ export function SpeedRoundGame({ game, pool, seed, onFinish, onClose }: ArcadePr
   const [q, setQ] = useState<ChoiceQuestion>(() => nextQuestion());
   const [chosen, setChosen] = useState<string | null>(null);
   const [score, setScore] = useState(0);
-  const [combo, setCombo] = useState(0);
+  const combo = useCombo();
+  const points = useRef(0);
   const [count, setCount] = useState(0);
   const results = useRef<Array<{ word: VocabLike; correct: boolean }>>([]);
   const over = useRef(false);
@@ -41,7 +43,7 @@ export function SpeedRoundGame({ game, pool, seed, onFinish, onClose }: ArcadePr
     over.current = true;
     if (timer.current) window.clearTimeout(timer.current);
     const right = results.current.filter((r) => r.correct).length;
-    onFinish({ score: right, correct: right, answered: results.current.length, seconds, words: results.current });
+    onFinish({ score: points.current, correct: right, answered: results.current.length, seconds, words: results.current, bestCombo: combo.best.current });
   };
 
   const timeLeft = useCountdown(seconds, end);
@@ -53,11 +55,11 @@ export function SpeedRoundGame({ game, pool, seed, onFinish, onClose }: ArcadePr
     setChosen(option);
     if (correct) {
       soundService.play('correct');
-      setScore((s) => s + 1);
-      setCombo((c) => c + 1);
+      points.current += 10 * combo.hit();
+      setScore(points.current);
     } else {
       soundService.play('incorrect');
-      setCombo(0);
+      combo.miss();
     }
     timer.current = window.setTimeout(
       () => {
@@ -71,7 +73,7 @@ export function SpeedRoundGame({ game, pool, seed, onFinish, onClose }: ArcadePr
   };
 
   return (
-    <GameShell game={game} progress={timeLeft / seconds} timeLeft={timeLeft} score={score} combo={combo} onClose={onClose}>
+    <GameShell game={game} progress={timeLeft / seconds} timeLeft={timeLeft} score={score} combo={combo.combo} onClose={onClose}>
       <div key={count} className="flex flex-1 animate-enter flex-col">
         <p className="text-center text-sm font-extrabold text-ink-soft">
           {q.promptLang === 'es' ? 'What does this mean?' : 'How do you say this in Spanish?'}

@@ -9,7 +9,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Card, Chip } from '@/components/ui/primitives';
 import { Sheet } from '@/components/ui/Sheet';
 import { CHAT_TOPICS } from '@/data/conversations/topics';
-import { playerLevel, useGameStore } from '@/store/gameStore';
+import { curriculumLevel, useGameStore } from '@/store/gameStore';
 import type { LevelId, LevelMeta } from '@/types/curriculum';
 import type { ConversationRecord } from '@/types/progress';
 import { cn } from '@/lib/utils';
@@ -93,7 +93,7 @@ function Transcript({ record, name }: { record: ConversationRecord; name: string
 export function EmmaHub({ scenarios, levels }: { scenarios: ScenarioCard[]; levels: LevelMeta[] }) {
   const caps = useCapabilities();
   const name = useGameStore((s) => s.profile.name);
-  const level = useGameStore(playerLevel);
+  const level = useGameStore(curriculumLevel);
   const history = useGameStore((s) => s.conversations);
   const accessCode = useGameStore((s) => s.settings.accessCode);
   const [open, setOpen] = useState<ConversationRecord | null>(null);

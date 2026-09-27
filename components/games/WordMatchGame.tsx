@@ -9,10 +9,11 @@ import { voiceService } from '@/services/voice/VoiceService';
 import { useGameStore } from '@/store/gameStore';
 import type { ArcadeProps } from './types';
 import { GameShell } from './GameShell';
+import { useCombo } from './useCombo';
 
 type Side = 'es' | 'en';
 
-/** Three boards of five pairs. 10 points a pair, −2 for a mix-up, and a bonus for speed. */
+/** Three boards of five pairs. 10 points a pair (times the combo), −2 for a mix-up, and a bonus for speed. */
 export function WordMatchGame({ game, pool, seed, onFinish, onClose }: ArcadeProps) {
   const autoplay = useGameStore((s) => s.settings.autoplayAudio);
   const [boards] = useState(() => matchRounds(pool, seededRandom(seed), 3, 5));
@@ -27,6 +28,7 @@ export function WordMatchGame({ game, pool, seed, onFinish, onClose }: ArcadePro
   const [matched, setMatched] = useState<string[]>([]);
   const [wrong, setWrong] = useState<string[]>([]);
   const [score, setScore] = useState(0);
+  const combo = useCombo();
   const missed = useRef(new Set<string>());
   const started = useRef(0);
   const timers = useRef<number[]>([]);
@@ -50,6 +52,7 @@ export function WordMatchGame({ game, pool, seed, onFinish, onClose }: ArcadePro
     const all = boards.flat();
     onFinish({
       score: finalScore + bonus,
+      bestCombo: combo.best.current,
       correct: all.filter((w) => !missed.current.has(w.id)).length,
       answered: all.length,
       seconds,
@@ -70,7 +73,7 @@ export function WordMatchGame({ game, pool, seed, onFinish, onClose }: ArcadePro
     if (picked.id === word.id) {
       soundService.play('match');
       const next = [...matched, word.id];
-      const nextScore = score + 10;
+      const nextScore = score + 10 * combo.hit();
       setMatched(next);
       setScore(nextScore);
       setPicked(null);
@@ -89,6 +92,7 @@ export function WordMatchGame({ game, pool, seed, onFinish, onClose }: ArcadePro
     soundService.play('incorrect');
     missed.current.add(word.id);
     missed.current.add(picked.id);
+    combo.miss();
     setScore((s) => Math.max(0, s - 2));
     setWrong([`${picked.side}:${picked.id}`, `${side}:${word.id}`]);
     setPicked(null);
@@ -125,7 +129,7 @@ export function WordMatchGame({ game, pool, seed, onFinish, onClose }: ArcadePro
   const layout = layouts[round];
 
   return (
-    <GameShell game={game} progress={totalPairs ? donePairs / totalPairs : 0} score={score} onClose={onClose}>
+    <GameShell game={game} progress={totalPairs ? donePairs / totalPairs : 0} score={score} combo={combo.combo} onClose={onClose}>
       <p className="text-center text-sm font-extrabold text-ink-soft">
         Board {Math.min(round + 1, boards.length)} of {boards.length}
       </p>

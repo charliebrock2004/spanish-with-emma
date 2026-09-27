@@ -8,6 +8,7 @@ import { cn, seededRandom } from '@/lib/utils';
 import { soundService } from '@/services/sound/SoundService';
 import type { ArcadeProps } from './types';
 import { GameShell } from './GameShell';
+import { useCombo } from './useCombo';
 import { useCountdown } from './useCountdown';
 
 function cardMaker(pool: VocabLike[], seed: number) {
@@ -16,14 +17,15 @@ function cardMaker(pool: VocabLike[], seed: number) {
   return () => blastCard(stream(), pool, random);
 }
 
-/** True or false, fast. Every five in a row adds a point to each answer. */
+/** True or false, fast. 10 points a right answer, multiplied by the combo. */
 export function VocabBlastGame({ game, pool, seed, onFinish, onClose }: ArcadeProps) {
   const seconds = game.seconds ?? 45;
   const [nextCard] = useState(() => cardMaker(pool, seed));
   const [card, setCard] = useState<BlastCard>(() => nextCard());
   const [verdict, setVerdict] = useState<'right' | 'wrong' | null>(null);
   const [score, setScore] = useState(0);
-  const [combo, setCombo] = useState(0);
+  const combo = useCombo();
+  const points = useRef(0);
   const [count, setCount] = useState(0);
   const results = useRef<Array<{ word: VocabLike; correct: boolean }>>([]);
   const over = useRef(false);
@@ -35,7 +37,7 @@ export function VocabBlastGame({ game, pool, seed, onFinish, onClose }: ArcadePr
     over.current = true;
     if (timer.current) window.clearTimeout(timer.current);
     const right = results.current.filter((r) => r.correct).length;
-    onFinish({ score, correct: right, answered: results.current.length, seconds, words: results.current });
+    onFinish({ score: points.current, correct: right, answered: results.current.length, seconds, words: results.current, bestCombo: combo.best.current });
   };
   const timeLeft = useCountdown(seconds, end);
 
@@ -45,11 +47,11 @@ export function VocabBlastGame({ game, pool, seed, onFinish, onClose }: ArcadePr
     results.current.push({ word: card.word, correct });
     if (correct) {
       soundService.play('correct');
-      setScore((s) => s + 1 + Math.floor(combo / 5));
-      setCombo((c) => c + 1);
+      points.current += 10 * combo.hit();
+      setScore(points.current);
     } else {
       soundService.play('incorrect');
-      setCombo(0);
+      combo.miss();
     }
     setVerdict(correct ? 'right' : 'wrong');
     timer.current = window.setTimeout(
@@ -81,7 +83,7 @@ export function VocabBlastGame({ game, pool, seed, onFinish, onClose }: ArcadePr
   }, []);
 
   return (
-    <GameShell game={game} progress={timeLeft / seconds} timeLeft={timeLeft} score={score} combo={combo} onClose={onClose}>
+    <GameShell game={game} progress={timeLeft / seconds} timeLeft={timeLeft} score={score} combo={combo.combo} onClose={onClose}>
       <p className="text-center text-sm font-extrabold text-ink-soft">Does it mean this?</p>
       <div
         key={count}

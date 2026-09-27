@@ -1,0 +1,8 @@
+{
+  "outfit-flamenco": { "fabric": "#a8231c", "dots": "#fff5ec" },
+  "outfit-mediterraneo": { "fabric": "#1d3f78", "dots": "#f4f8ff" },
+  "outfit-thistle": { "fabric": "#5b3a8c", "dots": "#f5eeff" },
+  "outfit-rose": { "fabric": "#b04a6a", "dots": "#fff4f6" },
+  "outfit-gold": { "fabric": "#b68520", "dots": "#fffaee" },
+  "outfit-emerald": { "fabric": "#155641", "dots": "#effaf4" }
+}

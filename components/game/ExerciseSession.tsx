@@ -1,19 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { emmaLine } from '@/components/emma/lines';
+import { comboLine, emmaLine } from '@/components/emma/lines';
 import { Button } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Sheet';
 import { EmmaAvatar } from '@/components/emma/EmmaAvatar';
 import { difficultyProfile, difficultyShift, showPronunciationFor, type DifficultyProfile } from '@/lib/progress/adaptive';
 import { reviewExercise } from '@/lib/curriculum/generate';
 import { weakWords, type VocabLike } from '@/lib/progress/srs';
-import { XP } from '@/lib/progress/xp';
+import { answerReward, comboMultiplier, type AnswerKind, type Reward } from '@/lib/game/economy';
 import { soundService } from '@/services/sound/SoundService';
 import { voiceService } from '@/services/voice/VoiceService';
 import { useGameStore } from '@/store/gameStore';
 import { useNow } from '@/lib/hooks/useNow';
 import { useVoiceCapabilities } from '@/components/voice/hooks';
+import { uid } from '@/lib/utils';
 import type { Exercise, LevelId, MistakeType } from '@/types/curriculum';
 import { FeedbackPanel, type Feedback } from './FeedbackPanel';
 import { LessonHeader } from './LessonHeader';
@@ -37,11 +38,17 @@ interface QueueItem {
 }
 
 export interface SessionResult {
+  /** Unique per play-through (the reward ledger key). */
+  sessionId: string;
   accuracy: number;
   perfect: boolean;
   mistakes: number;
   seconds: number;
-  answersXp: number;
+  /** XP and coins earned by answers (already saved). */
+  answers: Reward;
+  /** Total XP when the session started. */
+  xpBefore: number;
+  bestCombo: number;
   /** Exercises answered correctly at some point (resolves replayed mistakes). */
   correctExerciseIds: string[];
 }
@@ -166,11 +173,18 @@ export function ExerciseSession({
     everCorrect: new Set<string>(),
     mistakes: 0,
     xp: 0,
+    coins: 0,
     run: 0,
+    bestRun: 0,
     hadMistake: new Set<string>(),
   });
+  const [sessionId] = useState(() => uid('s'));
+  const [xpBefore] = useState(() => useGameStore.getState().xp);
+  const [combo, setCombo] = useState(0);
   const requeued = useRef<string | null>(null);
   const finished = useRef(false);
+  /** The queue item last answered — stops a double tap from counting twice. */
+  const lastAnswered = useRef<string | null>(null);
 
   useEffect(() => {
     stats.current.started = Date.now();
@@ -197,14 +211,17 @@ export function ExerciseSession({
     const s = stats.current;
     const answerable = s.answered.size;
     onFinish({
+      sessionId,
       accuracy: answerable ? s.firstTryCorrect.size / answerable : 1,
       perfect: s.mistakes === 0,
       mistakes: s.mistakes,
       seconds: Math.round((Date.now() - s.started) / 1000),
-      answersXp: s.xp,
+      answers: { xp: s.xp, coins: s.coins },
+      xpBefore,
+      bestCombo: s.bestRun,
       correctExerciseIds: [...s.everCorrect],
     });
-  }, [index, total, onFinish]);
+  }, [index, total, onFinish, sessionId, xpBefore]);
 
   const now = useNow();
   const speakingPaused = Boolean(settings.speakingPausedUntil && now && settings.speakingPausedUntil > now);
@@ -234,25 +251,33 @@ export function ExerciseSession({
   const handleAnswer = useCallback(
     (result: ExerciseResult) => {
       const item = queue[index];
-      if (!item || feedback) return;
+      if (!item || feedback || lastAnswered.current === item.key) return;
+      lastAnswered.current = item.key;
       const exercise = item.exercise;
       const s = stats.current;
       const firstAnswer = !s.answered.has(exercise.id);
       s.answered.add(exercise.id);
       const selfPaced = exercise.type === 'speak' || exercise.type === 'match' || exercise.type === 'conversation';
 
-      let xp = 0;
+      // Price the answer: speaking is worth most, a retry least; combos multiply.
+      let reward: Reward = { xp: 0, coins: 0 };
       if (result.correct) {
-        xp = result.xp ?? (exercise.type === 'speak' ? XP.speaking : s.hadMistake.has(exercise.id) ? XP.retry : XP.correct);
+        s.run += 1;
+        s.bestRun = Math.max(s.bestRun, s.run);
+        const kind: AnswerKind =
+          exercise.type === 'speak' ? (result.speaking?.typed ? 'typed-speaking' : 'speaking') : s.hadMistake.has(exercise.id) ? 'retry' : 'normal';
+        reward = answerReward(kind, s.run);
+        // A conversation exercise is several replies in one.
+        if (result.xp) reward = { ...reward, xp: Math.round(reward.xp * Math.max(1, result.xp / 10)) };
         s.everCorrect.add(exercise.id);
         if (firstAnswer && item.attempt === 0) s.firstTryCorrect.add(exercise.id);
-        s.run += 1;
       } else {
         s.mistakes += 1;
         s.hadMistake.add(exercise.id);
         s.run = 0;
       }
-      s.xp += xp;
+      const runNow = s.run;
+      setCombo(runNow);
 
       // Persist: stats, XP, spaced review and the mistake log.
       const words = vocabFor(exercise.vocabIds);
@@ -263,11 +288,12 @@ export function ExerciseSession({
             .filter((r): r is { word: VocabLike; correct: boolean } => Boolean(r.word)),
         );
       }
-      recordAnswer({
+      const earned = recordAnswer({
         correct: result.correct,
         vocab: result.vocabResults ? [] : words,
         skill: exercise.skill,
-        xp,
+        reward,
+        combo: runNow,
         listening: exercise.type === 'listen',
         speaking: result.speaking ? { passed: result.correct, score: result.speaking.score, typed: result.speaking.typed } : undefined,
         mistake: result.correct
@@ -281,6 +307,8 @@ export function ExerciseSession({
               exercise: exercise.type === 'conversation' ? undefined : exercise,
             },
       });
+      s.xp += earned.xp;
+      s.coins += earned.coins;
 
       // Hearts and another chance later in the session.
       const losesHeart = useHearts && !result.correct && !selfPaced;
@@ -294,9 +322,13 @@ export function ExerciseSession({
       // Emma's reaction.
       let title: string;
       let note: string | undefined;
+      const comboStep = result.correct ? comboLine(runNow) : null;
       if (result.correct) {
         soundService.play('correct');
-        if (exercise.type === 'speak' && !result.speaking?.typed) {
+        if (comboStep) {
+          window.setTimeout(() => soundService.playCombo(comboMultiplier(runNow)), 180);
+          title = comboStep;
+        } else if (exercise.type === 'speak' && !result.speaking?.typed) {
           title = exercise.success ?? emmaLine(result.speaking && result.speaking.score >= 0.9 ? 'speakGreat' : 'speakGood');
         } else if (exercise.type === 'conversation') {
           title = '¡Qué bien! Great conversation.';
@@ -334,7 +366,12 @@ export function ExerciseSession({
         expected: showExpected ? result.expected : undefined,
         expectedLang: result.expectedLang,
         note: result.correct ? undefined : note,
-        xp,
+        xp: earned.xp,
+        coins: earned.coins,
+        boosted: earned.boostXp > 0,
+        combo: result.correct ? runNow : 0,
+        comboStep: Boolean(comboStep),
+        almost: !result.correct && (Boolean(result.nearMiss) || (result.speaking?.score ?? 0) >= 0.6),
         canRetry: Boolean(result.retryable && !result.correct && (!useHearts || hearts - (losesHeart ? 1 : 0) > 0)),
       });
 
@@ -368,6 +405,7 @@ export function ExerciseSession({
 
   const handleRetry = useCallback(() => {
     setFeedback(null);
+    lastAnswered.current = null;
     voiceService.stop();
     const drop = requeued.current;
     requeued.current = null;
@@ -429,7 +467,7 @@ export function ExerciseSession({
 
   return (
     <div className="paper flex h-dvh flex-col overflow-hidden">
-      <LessonHeader progress={progress} hearts={hearts} onClose={() => setConfirmExit(true)} showHearts={useHearts} />
+      <LessonHeader progress={progress} hearts={hearts} combo={combo} onClose={() => setConfirmExit(true)} showHearts={useHearts} />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {banner && (
           <div className="mx-auto mt-2 w-full max-w-xl px-4">
@@ -459,7 +497,7 @@ export function ExerciseSession({
           <EmmaAvatar state="confused" size={56} />
           <div>
             <h2 className="font-display text-2xl font-semibold">Leave already?</h2>
-            <p className="text-ink-soft">The XP you&rsquo;ve earned is saved.</p>
+            <p className="text-ink-soft">The XP and coins you&rsquo;ve earned are saved.</p>
           </div>
         </div>
         <div className="mt-6 space-y-3">

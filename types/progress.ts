@@ -18,6 +18,8 @@ export interface LessonRecord {
   perfect: boolean;
   attempts: number;
   xpEarned: number;
+  /** Best rating: ⭐ done · ⭐⭐ 80%+ first time · ⭐⭐⭐ perfect. */
+  stars?: 1 | 2 | 3;
 }
 
 export interface LessonHistoryEntry {
@@ -75,6 +77,8 @@ export interface StreakState {
   freezes: number;
   /** Dates a freeze was used on, most recent last. */
   frozenDates: string[];
+  /** First day of the current run (milestone rewards are once per run). */
+  runStart?: string | null;
 }
 
 export interface DayActivity {
@@ -106,6 +110,17 @@ export interface PlayerStats {
   dailyGoalsMet: number;
   lateNightSessions: number;
   earlySessions: number;
+  /** Longest run of correct answers in a row. */
+  bestCombo: number;
+  /** Time spent speaking Spanish into the microphone. */
+  speakingSeconds: number;
+  coinsEarned: number;
+  coinsSpent: number;
+  itemsBought: number;
+  questsCompleted: number;
+  dailyChests: number;
+  weeklyChallenges: number;
+  chestsOpened: number;
 }
 
 export interface ConversationMessage {
