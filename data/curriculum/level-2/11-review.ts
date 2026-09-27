@@ -1,0 +1,71 @@
+import {
+  conversation,
+  defineLesson,
+  emma,
+  fill,
+  listen,
+  match,
+  meaning,
+  order,
+  question,
+  recall,
+  speak,
+  translate,
+  understand,
+  you,
+} from '@/lib/curriculum/dsl';
+
+export default defineLesson({
+  id: 'l2-review',
+  title: 'A Day in My Life',
+  description: 'Put Level 2 together — then chat about your life',
+  emoji: '⭐',
+  difficulty: 4,
+  milestone: true,
+  vocabulary: [],
+  exercises: [
+    match('madre', 'hermano', 'abuela', 'amigos', 'padres'),
+    meaning('pescado'),
+    recall('zumo'),
+    fill('Me ___ los gatos.', 'gustan', ['gusta', 'gusto'], 'I like cats.', { explanation: 'Plural → *me gustan*.' }),
+    fill('___ las tres y media.', 'Son', ['Es', 'Hay'], "It's half past three."),
+    question('Which word means "why"?', '¿por qué?', ['porque', '¿cuándo?']),
+    listen('Los domingos como con mis abuelos', 'On Sundays I eat with my grandparents'),
+    order('Trabajo de lunes a viernes', 'I work from Monday to Friday'),
+    translate('I have a brother and a sister', ['Tengo un hermano y una hermana']),
+    speak('Me gusta salir con amigos el fin de semana', 'I like going out with friends at the weekend'),
+    understand('Hay una cocina pequeña y dos dormitorios', ["There's a small kitchen and two bedrooms", 'There is a small kitchen and two bedrooms']),
+    listen('¿Quieres un café con leche?', 'Do you want a white coffee?'),
+    translate('My birthday is in June', ['Mi cumpleaños es en junio']),
+    order('¿Dónde vives y qué te gusta hacer?', 'Where do you live and what do you like doing?'),
+    conversation('A day in your life', [
+      emma(
+        '¡Hola, {name}! ¿Qué tal?',
+        'Hi {name}! How are things?',
+        you(['Bien {any}', 'Muy bien {any}', 'Estoy {any}', 'Genial {any}', 'Más o menos {any}'], "Fine, thanks.", {
+          hint: 'Muy bien, gracias',
+          wrong: ['Tengo un hermano', 'Son las dos'],
+        }),
+      ),
+      emma(
+        '¿Tienes hermanos?',
+        'Do you have brothers or sisters?',
+        you(['Tengo {any}', 'Sí {any}', 'No {any}'], 'I have a sister.', { hint: 'Tengo una hermana', wrong: ['Me gusta el pan', 'Adiós'] }),
+      ),
+      emma(
+        '¿Qué te gusta hacer los fines de semana?',
+        'What do you like doing at weekends?',
+        you(['Me gusta {any}', 'Me encanta {any}', 'Salgo {any}', 'Juego {any}'], 'I like swimming.', {
+          hint: 'Me gusta nadar',
+          wrong: ['Hoy es lunes', 'Quiero un té'],
+        }),
+      ),
+      emma(
+        '¿Y a qué hora comes los domingos?',
+        'And what time do you have lunch on Sundays?',
+        you(['A las {any}', 'Como a las {any}', 'A la una {any}'], 'At two.', { hint: 'A las dos', wrong: ['Mi madre se llama Ana', 'Buenas noches'] }),
+      ),
+      emma('¡Qué bien hablas ya! Level 2, ¡completado! 🎉', 'You speak so well already! Level 2, done!'),
+    ]),
+  ],
+});
