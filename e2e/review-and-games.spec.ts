@@ -36,6 +36,9 @@ test('fixing a mistake resolves it', async ({ page }) => {
 test('Word Match can be played to the end', async ({ page }) => {
   await page.goto('/play/word-match');
   await page.getByRole('button', { name: 'Start' }).click();
+  // 3 · 2 · 1 · ¡Ya!
+  await expect(page.getByRole('timer')).toBeVisible();
+  await page.locator('[aria-label="Spanish words"]').waitFor();
   for (let board = 0; board < 3; board++) {
     const spanishTiles = page.locator('[aria-label="Spanish words"] button:not([disabled])');
     if ((await spanishTiles.count()) === 0) break;

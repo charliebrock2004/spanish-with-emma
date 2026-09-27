@@ -43,7 +43,7 @@ function StreakTrack() {
       <div className="flex items-center gap-3">
         <FlameIcon size={52} lit={status.activeToday} className={cn(status.activeToday && 'animate-flicker')} />
         <div className="min-w-0 flex-1">
-          <p className="font-display text-2xl leading-tight font-semibold">{current} day streak</p>
+          <h2 className="font-display text-2xl leading-tight font-semibold">{current} day streak</h2>
           <p className="text-sm text-ink-soft">
             {status.activeToday
               ? 'Done for today — see you tomorrow!'

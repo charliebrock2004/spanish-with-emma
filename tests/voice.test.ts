@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { chunkForSpeech, prepareForSpeech } from '@/lib/voice/prepare';
+import { cloudTts } from '@/services/voice/cloudTts';
+import { deviceTts } from '@/services/voice/deviceTts';
+import { VoiceError } from '@/services/voice/types';
 import { voiceService } from '@/services/voice/VoiceService';
 
 describe('speech preparation', () => {
@@ -170,5 +173,57 @@ describe('/api/tts', () => {
     expect((await route.GET(ttsRequest({ lang: 'en', text: 'Hi' }, { 'x-access-code': 'letmein' }))).status).toBe(200);
     expect((await route.GET(ttsRequest({ lang: 'en', text: '🔥' }, { 'x-access-code': 'letmein' }))).status).toBe(400);
     expect((await route.GET(ttsRequest({ lang: 'en', text: 'Hi' }, { 'x-access-code': 'letmein', 'sec-fetch-site': 'cross-site' }))).status).toBe(403);
+  });
+});
+
+describe('voice fallback', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    voiceService.configure({ cloudTts: false, expressive: true, mode: 'scottish' });
+  });
+
+  async function setup(cloudFails: boolean) {
+    vi.spyOn(cloudTts, 'isSupported').mockReturnValue(true);
+    vi.spyOn(cloudTts, 'cancel').mockImplementation(() => {});
+    vi.spyOn(cloudTts, 'prefetch').mockImplementation(() => {});
+    const cloud = vi.spyOn(cloudTts, 'speak').mockImplementation(async () => {
+      if (cloudFails) throw new VoiceError('tts-failed');
+    });
+    vi.spyOn(deviceTts, 'isSupported').mockReturnValue(true);
+    vi.spyOn(deviceTts, 'cancel').mockImplementation(() => {});
+    const device = vi.spyOn(deviceTts, 'speak').mockResolvedValue(undefined);
+    voiceService.configure({ cloudTts: true, ttsEngine: 'auto', mode: 'scottish' });
+    return { cloud, device };
+  }
+
+  it('uses the cloud voice first, with the style of the moment', async () => {
+    const { cloud, device } = await setup(false);
+    expect(await voiceService.say('*¡Muy bien!*', { style: 'excited' })).toBe(true);
+    expect(cloud).toHaveBeenCalledWith(expect.objectContaining({ text: '¡Muy bien!', lang: 'es', style: 'excited' }), expect.anything());
+    expect(device).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the device voice when the cloud voice fails', async () => {
+    const { cloud, device } = await setup(true);
+    expect(await voiceService.say('*¡Hola!* That means hello.')).toBe(true);
+    expect(cloud).toHaveBeenCalled();
+    expect(device).toHaveBeenCalledWith(expect.objectContaining({ text: '¡Hola!', lang: 'es' }), expect.anything());
+    expect(device).toHaveBeenCalledWith(expect.objectContaining({ text: 'That means hello.', lang: 'en' }), expect.anything());
+  });
+
+  it('keeps Emma calm when expressive voice is off', async () => {
+    const { cloud } = await setup(false);
+    voiceService.configure({ expressive: false });
+    await voiceService.say('*¡Genial!*', { style: 'excited' });
+    expect(cloud).toHaveBeenCalledWith(expect.objectContaining({ style: 'neutral' }), expect.anything());
+  });
+
+  it('replays the last line, slower on request', async () => {
+    const { cloud } = await setup(false);
+    await voiceService.say('*Buenos días*');
+    await voiceService.replay(0.7);
+    const last = cloud.mock.calls.at(-1)![0];
+    expect(last.text).toBe('Buenos días');
+    expect(last.rate).toBeCloseTo(voiceService.getSettings().rate * 0.7);
   });
 });

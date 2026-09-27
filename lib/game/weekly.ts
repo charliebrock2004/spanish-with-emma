@@ -27,7 +27,7 @@ const LABELS: Partial<Record<QuestMetric, (n: number) => string>> = {
   conversations: (n) => `${n} conversations`,
   speaking: (n) => `${n} sentences`,
   games: (n) => `${n} games`,
-  reviews: (n) => `${n} smart reviews`,
+  reviews: (n) => `${n} reviews`,
   perfect: (n) => `${n} perfect lessons`,
 };
 

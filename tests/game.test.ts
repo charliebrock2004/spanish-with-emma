@@ -376,6 +376,19 @@ describe('streak in the engine', () => {
     expect(second[1] && second[1].items).toEqual([]);
     expect(data.streak.current).toBe(7);
   });
+  it('celebrates the cause before the effect (milestone, then the level-up it caused)', () => {
+    let data = { ...initialData(), xp: 140 };
+    for (let i = 0; i < 3; i++) {
+      const t = begin(data, NOW + i * 86_400_000, addDays(DAY, i));
+      recordStreak(t);
+      if (i === 2) {
+        const kinds = t.events.map((e) => e.kind).filter((k) => k !== 'streak');
+        expect(kinds.slice(0, 2)).toEqual(['streak-milestone', 'level-up']);
+      }
+      data = t.data;
+    }
+  });
+
   it('welcomes the player back after a break', () => {
     let t = tx();
     recordStreak(t);
@@ -491,6 +504,18 @@ describe('game store', () => {
 });
 
 describe('upgrading an old save', () => {
+  it('never upgrades (or pays) a current save twice, even if it is labelled as old', () => {
+    const migrate = useGameStore.persist.getOptions().migrate!;
+    const current = { ...initialData(), xp: 5000, coins: 42, claimed: { 'welcome-chest': 1 } };
+    const again = migrate(current, 1) as GameData;
+    expect(again.coins).toBe(42);
+    const old = { ...initialData(), xp: 5000 } as Partial<GameData>;
+    delete old.inventory;
+    delete old.claimed;
+    delete old.coins;
+    expect((migrate(old, 1) as GameData).coins).toBeGreaterThanOrEqual(500);
+  });
+
   it('pays coins for past XP, hands over earned unlocks and never double-pays levels', () => {
     const old = {
       ...initialData(),

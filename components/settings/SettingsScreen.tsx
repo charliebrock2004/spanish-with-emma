@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Card, Segmented, Slider, Toggle } from '@/components/ui/primitives';
 import { soundService } from '@/services/sound/SoundService';
+import { SAVE_VERSION } from '@/store/gameStore';
 import { Sheet } from '@/components/ui/Sheet';
 import { useListener, useVoiceCapabilities, useVoiceStatus } from '@/components/voice/hooks';
 import { useNow } from '@/lib/hooks/useNow';
@@ -239,7 +240,7 @@ export function SettingsScreen() {
 
   const exportProgress = () => {
     const raw = browserStorage.getItem(STORE_KEY);
-    const text = typeof raw === 'string' ? raw : JSON.stringify({ state: {}, version: 1 });
+    const text = typeof raw === 'string' ? raw : JSON.stringify({ state: {}, version: SAVE_VERSION });
     const blob = new Blob([text], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -253,13 +254,15 @@ export function SettingsScreen() {
     try {
       if (file.size > 5_000_000) throw new Error('too big');
       const text = await file.text();
-      const parsed = JSON.parse(text) as { state?: { profile?: { name?: unknown; onboarded?: unknown }; xp?: unknown } };
+      const parsed = JSON.parse(text) as { version?: unknown; state?: { profile?: { name?: unknown; onboarded?: unknown }; xp?: unknown } };
       const state = parsed.state;
       if (!state || typeof state !== 'object' || typeof state.xp !== 'number' || typeof state.profile?.onboarded !== 'boolean') {
         throw new Error('shape');
       }
       const who = typeof state.profile.name === 'string' && state.profile.name ? state.profile.name : 'this learner';
-      setImportState({ data: JSON.stringify({ state, version: 1 }), summary: `Progress for ${who} · ${state.xp} XP` });
+      // Keep the file's own version, so a current save is never "upgraded" (and paid) twice.
+      const version = typeof parsed.version === 'number' && parsed.version >= 1 && parsed.version <= SAVE_VERSION ? parsed.version : 1;
+      setImportState({ data: JSON.stringify({ state, version }), summary: `Progress for ${who} · ${state.xp} XP` });
     } catch {
       setImportState({ error: 'That file doesn’t look like a Spanish with Emma progress file.' });
     }

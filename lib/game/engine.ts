@@ -44,6 +44,16 @@ export function begin(data: GameData, now: number, today: string): Tx {
 type NewEvent = UiEvent extends infer E ? (E extends UiEvent ? Omit<E, 'id'> : never) : never;
 const event = (e: NewEvent): UiEvent => ({ ...e, id: uid('evt') }) as UiEvent;
 
+/**
+ * Runs a reward and queues its celebration *before* anything the reward
+ * itself set off (a quest's XP can cause a level-up — the quest shows first).
+ */
+function causeFirst(tx: Tx, reward: () => UiEvent | null) {
+  const at = tx.events.length;
+  const e = reward();
+  if (e) tx.events.splice(at, 0, e);
+}
+
 export function addStats(tx: Tx, increments: Partial<PlayerStats>) {
   const stats = { ...tx.data.stats };
   for (const [key, value] of Object.entries(increments) as Array<[keyof PlayerStats, number]>) stats[key] += value;
@@ -217,10 +227,12 @@ export function bump(tx: Tx, metric: QuestMetric, amount: number) {
   const { daily, completed } = progressQuests(tx.data.quests!, metric, amount);
   tx.data.quests = daily;
   for (const quest of completed) {
-    const g = grant(tx, { key: `quest:${quest.id}`, source: 'quest', xp: quest.reward.xp, coins: quest.reward.coins });
-    if (!g.granted) continue;
-    addStats(tx, { questsCompleted: 1 });
-    tx.events.push(event({ kind: 'quest', quest }));
+    causeFirst(tx, () => {
+      const g = grant(tx, { key: `quest:${quest.id}`, source: 'quest', xp: quest.reward.xp, coins: quest.reward.coins });
+      if (!g.granted) return null;
+      addStats(tx, { questsCompleted: 1 });
+      return event({ kind: 'quest', quest });
+    });
   }
   if (completed.length && allQuestsDone(tx.data.quests)) {
     const g = grant(tx, { key: `daily-chest:${tx.data.quests!.date}`, source: 'quest', chest: { kind: 'daily', source: 'All daily quests done' } });
@@ -235,11 +247,12 @@ export function bump(tx: Tx, metric: QuestMetric, amount: number) {
   tx.data.weekly = weekly;
   if (weeklyComplete(weekly) && !weekly.claimed) {
     tx.data.weekly = { ...weekly, claimed: true };
-    const g = grant(tx, { key: `weekly:${weekly.week}`, source: 'weekly', xp: weekly.reward.xp, coins: weekly.reward.coins, items: [weekly.reward.item] });
-    if (g.granted) {
+    causeFirst(tx, () => {
+      const g = grant(tx, { key: `weekly:${weekly.week}`, source: 'weekly', xp: weekly.reward.xp, coins: weekly.reward.coins, items: [weekly.reward.item] });
+      if (!g.granted) return null;
       addStats(tx, { weeklyChallenges: 1 });
-      tx.events.push(event({ kind: 'weekly', title: weekly.title, reward: { xp: g.xp, coins: g.coins }, item: g.items[0] ?? null }));
-    }
+      return event({ kind: 'weekly', title: weekly.title, reward: { xp: g.xp, coins: g.coins }, item: g.items[0] ?? null });
+    });
   }
 }
 
@@ -278,21 +291,25 @@ export function recordStreak(tx: Tx): StreakUpdate {
   tx.events.push(event({ kind: 'streak', update: result }));
 
   for (const milestone of milestonesReached(fresh ? 0 : prev.current, state.current)) {
-    const g = grant(tx, {
-      key: `streak:${runStart}:${milestone.days}`,
-      source: 'streak',
-      xp: milestone.xp,
-      coins: milestone.coins,
-      items: milestone.item ? [milestone.item] : [],
-      chest: milestone.chest ? { kind: milestone.chest, source: milestone.title } : undefined,
+    causeFirst(tx, () => {
+      const g = grant(tx, {
+        key: `streak:${runStart}:${milestone.days}`,
+        source: 'streak',
+        xp: milestone.xp,
+        coins: milestone.coins,
+        items: milestone.item ? [milestone.item] : [],
+        chest: milestone.chest ? { kind: milestone.chest, source: milestone.title } : undefined,
+      });
+      return g.granted ? event({ kind: 'streak-milestone', milestone, items: g.items, chestId: g.chestId }) : null;
     });
-    if (g.granted) tx.events.push(event({ kind: 'streak-milestone', milestone, items: g.items, chestId: g.chestId }));
   }
 
   // Coming back after a break is celebrated, never punished.
   if (update.event === 'restarted') {
-    const g = grant(tx, { key: `welcome-back:${tx.today}`, source: 'welcome', ...WELCOME_BACK_REWARD });
-    if (g.granted) tx.events.push(event({ kind: 'welcome-back', reward: { xp: g.xp, coins: g.coins } }));
+    causeFirst(tx, () => {
+      const g = grant(tx, { key: `welcome-back:${tx.today}`, source: 'welcome', ...WELCOME_BACK_REWARD });
+      return g.granted ? event({ kind: 'welcome-back', reward: { xp: g.xp, coins: g.coins } }) : null;
+    });
   }
   return result;
 }

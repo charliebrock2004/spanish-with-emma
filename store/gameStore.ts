@@ -43,6 +43,9 @@ import { initialData, pickData } from '@/lib/game/state';
 import { uid } from '@/lib/utils';
 
 export type { GameData, UiEvent } from '@/types/game';
+
+/** The saved-data version (bumped when the save format changes; older saves are migrated). */
+export const SAVE_VERSION = 2;
 export { achievementContext, curriculumLevel, DEFAULT_SETTINGS, initialData, xpLevel } from '@/lib/game/state';
 
 // ─── Inputs ────────────────────────────────────────────────────────────────
@@ -498,13 +501,14 @@ export const useGameStore = create<GameStore>()(
     },
     {
       name: 'spanish-with-emma',
-      version: 2,
+      version: SAVE_VERSION,
       storage: createJSONStorage(() => browserStorage),
       skipHydration: true,
       partialize: (s): GameData => pickData(s),
       migrate: (persisted, version) => {
         const saved = (persisted ?? {}) as Partial<GameData>;
-        if (version < 2) return migrateToV2(saved, Date.now(), localDateKey());
+        // Data that already has the economy (e.g. a re-labelled import) is never upgraded — or paid — twice.
+        if (version < 2 && !saved.inventory && !saved.claimed) return migrateToV2(saved, Date.now(), localDateKey());
         return saved as GameData;
       },
       // Fill in any fields added since the data was saved.

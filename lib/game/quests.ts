@@ -42,7 +42,7 @@ const TEMPLATES: Template[] = [
   { metric: 'conversations', emoji: '💬', targets: [1], title: () => 'Have a conversation with Emma', reward: () => ({ xp: 75, coins: 15 }) },
   { metric: 'dailyGoal', emoji: '🔥', targets: [1], title: () => 'Hit your daily goal', reward: () => ({ xp: 100, coins: 20 }) },
   { metric: 'perfect', emoji: '⭐', targets: [1], title: () => 'Finish a lesson with no mistakes', reward: () => ({ xp: 100, coins: 20 }) },
-  { metric: 'reviews', emoji: '🔁', targets: [1], title: () => 'Do a smart review', reward: () => ({ xp: 60, coins: 15 }) },
+  { metric: 'reviews', emoji: '🔁', targets: [1], title: () => 'Finish a review session', reward: () => ({ xp: 60, coins: 15 }) },
   { metric: 'xp', emoji: '✨', targets: [150, 250, 400], title: (n) => `Earn ${n} XP`, reward: (n) => ({ xp: 50, coins: Math.round(n / 20) }) },
   { metric: 'combo', emoji: '⚡', targets: [5, 8, 10], title: (n) => `Get ${n} right in a row`, reward: (n) => ({ xp: 10 * n, coins: 2 * n }), max: true },
   { metric: 'listening', emoji: '👂', targets: [5, 8, 10], title: (n) => `Get ${n} listening questions right`, reward: (n) => ({ xp: 10 * n, coins: 2 * n }) },

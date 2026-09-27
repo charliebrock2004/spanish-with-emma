@@ -10,9 +10,11 @@ test.beforeEach(async ({ page }) => {
 test('home shows today’s progress and the next lesson', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /Hola Charlie/ })).toBeVisible();
-  await expect(page.getByText('Today’s Spanish')).toBeVisible();
-  await expect(page.getByRole('link', { name: /Continue lesson/ })).toBeVisible();
-  await expect(page.getByText('Your journey')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Continue quest/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Daily quests|Today complete/ })).toBeVisible();
+  // The HUD: player level, streak and coins.
+  await expect(page.getByRole('link', { name: /Player level \d+/ })).toBeVisible();
+  await expect(page.getByTestId('hud-coins')).toBeVisible();
 });
 
 test('every tab in the bottom navigation works', async ({ page }) => {

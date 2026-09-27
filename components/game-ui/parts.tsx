@@ -137,7 +137,7 @@ export function Hud({ className }: { className?: string }) {
         <LevelBadge level={level.level} progress={level.progress} size={40} className={cn(levelBump && 'animate-pop')} />
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-2 text-[11px] leading-none font-extrabold text-ink-soft">
-            <span className="truncate">Level {level.level}</span>
+            <span className="truncate">{boost > 0 ? `Lv ${level.level}` : `Level ${level.level}`}</span>
             <span className="tabular-nums">{level.maxed ? 'MAX' : `${formatNumber(level.xpInto)}/${formatNumber(level.xpForNext)}`}</span>
           </span>
           <XpBar progress={level.progress} className="mt-1.5" />

@@ -30,6 +30,7 @@ import type { LessonHistoryEntry } from '@/types/progress';
 import { WeekChart, type DayBar } from './WeekChart';
 
 function formatDuration(seconds: number) {
+  if (seconds < 60) return `${Math.round(seconds)}s`;
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes}m`;
   const h = Math.floor(minutes / 60);
