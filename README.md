@@ -6,7 +6,7 @@ Learn European Spanish by talking with Emma: from your very first *¡Hola!* to r
 - **Speaking first.** You answer out loud through the microphone and get word-by-word feedback. You can switch to typing at any time.
 - **Emma's voice.** Emma speaks Castilian Spanish and explains things in natural Scottish English. You can switch between 🇪🇸 Spanish and 🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scottish voices, or leave it on Auto.
 - **Talk to Emma.**
-  - Thirteen guided conversations work offline. Emma remembers what you tell her ("Vivo en Escocia" → "¡Ah, Escocia! ¿Te gusta vivir allí?") and simplifies when you get stuck.
+  - Thirteen guided conversations run on the device, with no AI key needed. Emma remembers what you tell her ("Vivo en Escocia" → "¡Ah, Escocia! ¿Te gusta vivir allí?") and simplifies when you get stuck.
   - There are also seven free AI chat topics, which adapt to your level.
 - **Gentle corrections.** Emma says "Almost! ❤️ In Spanish we normally say…", gives you another try, and saves the mistake for review.
 - **Smart review.** A spaced-repetition review brings words back when they're due. You can also replay your mistakes and browse your full word list with mastery levels.

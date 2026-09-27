@@ -321,7 +321,7 @@ export function SettingsScreen() {
         {caps.cloudTts && (
           <Row
             label="Voice engine"
-            description="Natural voices come from the server and sound more human; device voices work offline."
+            description="Natural voices come from the server and sound more human; device voices also work without a connection."
           >
             <Segmented<EnginePreference>
               label="Voice engine"

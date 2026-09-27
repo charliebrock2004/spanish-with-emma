@@ -180,7 +180,7 @@ export function EmmaHub({ scenarios, levels }: { scenarios: ScenarioCard[]; leve
                 <p className="font-extrabold">Open-ended AI chat is switched off</p>
                 <p className="mt-1 text-ink-soft">
                   Free conversation needs an AI key on the server (<code className="text-[13px]">ANTHROPIC_API_KEY</code> — see the README).
-                  The guided conversations below work without it, even offline.
+                  The guided conversations below work without it.
                 </p>
               </div>
             </div>

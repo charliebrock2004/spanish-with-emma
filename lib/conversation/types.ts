@@ -3,7 +3,7 @@ import type { LevelId } from '@/types/curriculum';
 /**
  * Guided conversations: scripted scenes with flexible understanding and slot
  * memory ("Vivo en Escocia" → Emma remembers Escocia). They run entirely in
- * the browser, so Talk to Emma works with no AI key and offline.
+ * the browser, so Talk to Emma works with no AI key at all.
  */
 
 export interface Line {
