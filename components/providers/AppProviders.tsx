@@ -46,6 +46,8 @@ function ServicesBridge({ capabilities }: { capabilities: Capabilities }) {
       cloudTts: capabilities.cloudTts,
       cloudStt: capabilities.cloudStt,
       accessCode: settings.accessCode,
+      accessCodeRequired: capabilities.accessCodeRequired,
+      expressive: settings.expressiveVoice,
     });
     soundService.setEnabled(settings.soundEffects);
     soundService.setVolume(settings.soundVolume);

@@ -2,8 +2,9 @@
 
 import { useEffect, useRef } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { voiceService } from '@/services/voice/VoiceService';
 import { cn } from '@/lib/utils';
-import { useSpeaker } from './hooks';
+import { useSpeaker, useVoiceStatus } from './hooks';
 
 /**
  * Plays Spanish with Emma's Spanish voice. Optionally auto-plays once, and
@@ -30,6 +31,7 @@ export function SpeakerButton({
   className?: string;
 }) {
   const { say, activeKey } = useSpeaker();
+  const { speaking, paused } = useVoiceStatus();
   const played = useRef<string | null>(null);
   const normalKey = `normal:${text}`;
   const slowKey = `slow:${text}`;
@@ -48,24 +50,28 @@ export function SpeakerButton({
     xl: 'h-24 w-24',
   }[size];
   const iconSize = { sm: 18, md: 22, lg: 28, xl: 40 }[size];
-  const playing = activeKey === normalKey;
+  const playing = activeKey === normalKey && speaking;
 
   return (
     <div className={cn('inline-flex items-center gap-2', className)}>
       <button
         type="button"
-        onClick={() => void say(`*${text}*`, { key: normalKey, rateFactor })}
-        aria-label={label}
+        onClick={() => (playing ? voiceService.togglePause() : void say(`*${text}*`, { key: normalKey, rateFactor }))}
+        aria-label={playing ? (paused ? 'Resume' : 'Pause') : label}
         className={cn(
           'relative grid shrink-0 place-items-center rounded-full transition-transform',
           quiet
             ? 'bg-terracotta-light/70 text-terracotta hover:bg-terracotta-light active:scale-95'
             : 'bg-terracotta text-white shadow-[0_4px_0_var(--color-terracotta-dark)] active:translate-y-[3px] active:shadow-[0_1px_0_var(--color-terracotta-dark)]',
           dims,
-          playing && 'animate-glow',
+          playing && !paused && 'animate-glow',
         )}
       >
-        <Icon name="speaker" size={iconSize} strokeWidth={2.4} />
+        {playing ? (
+          <Icon name={paused ? 'play' : 'pause'} size={iconSize} strokeWidth={paused ? 0 : 2.6} filled={paused} />
+        ) : (
+          <Icon name="speaker" size={iconSize} strokeWidth={2.4} />
+        )}
       </button>
       {showSlow && (
         <button

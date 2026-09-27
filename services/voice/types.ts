@@ -4,6 +4,8 @@
  * later) implement these interfaces and can be swapped freely.
  */
 
+import type { VoiceStyle } from '@/lib/voice/prepare';
+
 export type SpeechLang = 'es' | 'en';
 
 export type RecognitionLang = 'es-ES' | 'en-GB';
@@ -70,6 +72,10 @@ export interface SpeakRequest {
   rate: number;
   voiceURI: string | null;
   signal: AbortSignal;
+  /** Delivery (cloud voices change their delivery; device voices nudge pitch). */
+  style?: VoiceStyle;
+  /** Called when audio actually starts (the end of "getting ready"). */
+  onStart?: () => void;
 }
 
 export interface TtsProvider {
@@ -79,12 +85,16 @@ export interface TtsProvider {
   cancel(): void;
   /** Called from a user gesture so iOS allows audio later. */
   unlock?(): void;
-  prefetch?(text: string, lang: SpeechLang, context: ProviderContext): void;
+  prefetch?(text: string, lang: SpeechLang, context: ProviderContext, style?: VoiceStyle): void;
+  pause?(): void;
+  resume?(): void;
 }
 
 /** Things providers need from the app (e.g. the access code for API routes). */
 export interface ProviderContext {
   accessCode: string;
+  /** Stream audio straight into the player (not possible when an access-code header is needed). */
+  stream?: boolean;
 }
 
 export interface DeviceVoice {

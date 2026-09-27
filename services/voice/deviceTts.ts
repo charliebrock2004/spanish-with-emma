@@ -1,3 +1,4 @@
+import type { VoiceStyle } from '@/lib/voice/prepare';
 import { rankVoices, isScottishVoice } from './voiceSelection';
 import { VoiceError, type DeviceVoice, type SpeakRequest, type SpeechLang, type TtsProvider } from './types';
 
@@ -7,9 +8,19 @@ import { VoiceError, type DeviceVoice, type SpeakRequest, type SpeechLang, type 
  * Includes the usual workarounds: voices loading late, Safari not firing
  * `onend`, and Chrome cutting off long utterances.
  */
+/** Device voices can't act, but a small pitch/rate nudge still reads as brighter or softer. */
+const STYLE_TUNING: Record<VoiceStyle, { pitch: number; rate: number }> = {
+  neutral: { pitch: 1, rate: 1 },
+  cheerful: { pitch: 1.06, rate: 1.02 },
+  excited: { pitch: 1.1, rate: 1.04 },
+  gentle: { pitch: 0.97, rate: 0.96 },
+  calm: { pitch: 0.98, rate: 0.97 },
+};
+
 class DeviceTts implements TtsProvider {
   readonly id = 'device' as const;
   private voices: SpeechSynthesisVoice[] = [];
+  private paused = false;
   private loading: Promise<void> | null = null;
   private listeners = new Set<() => void>();
 
@@ -75,10 +86,23 @@ class DeviceTts implements TtsProvider {
   }
 
   cancel(): void {
+    this.paused = false;
     if (this.isSupported()) window.speechSynthesis.cancel();
   }
 
-  async speak({ text, lang, rate, voiceURI, signal }: SpeakRequest): Promise<void> {
+  pause(): void {
+    if (!this.isSupported() || !window.speechSynthesis.speaking) return;
+    this.paused = true;
+    window.speechSynthesis.pause();
+  }
+
+  resume(): void {
+    if (!this.isSupported()) return;
+    this.paused = false;
+    window.speechSynthesis.resume();
+  }
+
+  async speak({ text, lang, rate, voiceURI, signal, style = 'neutral', onStart }: SpeakRequest): Promise<void> {
     if (!this.isSupported()) throw new VoiceError('not-supported');
     await this.loadVoices();
     if (signal.aborted) return;
@@ -90,20 +114,30 @@ class DeviceTts implements TtsProvider {
       if (last && last.length + chunk.length < 160) merged[merged.length - 1] = `${last} ${chunk}`;
       else merged.push(chunk);
     }
+    const tuning = STYLE_TUNING[style];
     for (const chunk of merged) {
       if (signal.aborted) return;
-      await this.speakOne(chunk, lang, rate, voiceURI, signal);
+      await this.speakOne(chunk, lang, rate * tuning.rate, voiceURI, signal, tuning.pitch, onStart);
     }
   }
 
-  private speakOne(text: string, lang: SpeechLang, rate: number, voiceURI: string | null, signal: AbortSignal): Promise<void> {
+  private speakOne(
+    text: string,
+    lang: SpeechLang,
+    rate: number,
+    voiceURI: string | null,
+    signal: AbortSignal,
+    pitch = 1,
+    onStart?: () => void,
+  ): Promise<void> {
     const synth = window.speechSynthesis;
     const utterance = new SpeechSynthesisUtterance(text);
     const voice = this.pickVoice(lang, voiceURI);
     if (voice) utterance.voice = voice;
     utterance.lang = voice?.lang ?? (lang === 'es' ? 'es-ES' : 'en-GB');
     utterance.rate = Math.min(1.4, Math.max(0.5, rate));
-    utterance.pitch = 1;
+    utterance.pitch = pitch;
+    utterance.onstart = () => onStart?.();
 
     return new Promise<void>((resolve, reject) => {
       let settled = false;
@@ -119,8 +153,13 @@ class DeviceTts implements TtsProvider {
         synth.cancel();
         finish();
       };
-      // Safari occasionally never fires `onend`; don't hang the lesson.
-      const fallback = window.setTimeout(() => finish(), 2500 + (text.length * 110) / utterance.rate);
+      // Safari occasionally never fires `onend`; don't hang the lesson (but wait while paused).
+      const limit = 2500 + (text.length * 110) / utterance.rate;
+      const check = () => {
+        if (this.paused) fallback = window.setTimeout(check, 1000);
+        else finish();
+      };
+      let fallback = window.setTimeout(check, limit);
       utterance.onend = () => finish();
       utterance.onerror = (event) => {
         if (event.error === 'interrupted' || event.error === 'canceled') finish();

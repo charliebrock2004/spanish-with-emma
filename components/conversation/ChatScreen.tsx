@@ -16,6 +16,8 @@ import { ChatRequestError, fetchEmmaReply } from '@/lib/conversation/aiClient';
 import { currentHint, respondGuided, startGuided, type GuidedState } from '@/lib/conversation/guided';
 import type { GuidedScenario, Line } from '@/lib/conversation/types';
 import { conversationReward } from '@/lib/game/economy';
+import type { VoiceStyle } from '@/lib/voice/prepare';
+import { VoiceControls } from '@/components/voice/VoiceControls';
 import { ITEMS_BY_ID } from '@/data/shop';
 import { RewardChips } from '@/components/game-ui/parts';
 import { useNow } from '@/lib/hooks/useNow';
@@ -78,6 +80,15 @@ function SpecialScene({ scenario }: { scenario: GuidedScenario }) {
   );
 }
 
+/** Emma's delivery follows her mood. */
+function styleFor(state: EmmaState): VoiceStyle {
+  if (state === 'celebrating' || state === 'excited') return 'excited';
+  if (state === 'happy' || state === 'proud' || state === 'correct' || state === 'surprised') return 'cheerful';
+  if (state === 'encouraging' || state === 'wrong' || state === 'almost') return 'gentle';
+  if (state === 'thinking' || state === 'confused') return 'calm';
+  return 'neutral';
+}
+
 function ChatSkeleton() {
   return (
     <div className="paper flex h-dvh flex-col px-4 pt-4" aria-busy="true" aria-label="Loading conversation">
@@ -134,13 +145,15 @@ function Conversation({ scenario, topic }: { scenario?: GuidedScenario; topic?: 
   const pausedUntil = useGameStore((s) => s.settings.speakingPausedUntil);
   const completeSession = useGameStore((s) => s.completeSession);
   const logMistake = useGameStore((s) => s.logMistake);
-  const { speaking, listening } = useVoiceStatus();
+  const { speaking, listening, paused, preparing } = useVoiceStatus();
   const now = useNow();
 
   const mode: 'guided' | 'ai' = scenario ? 'guided' : 'ai';
   const title = scenario?.title ?? topic?.title ?? 'Talk to Emma';
   const [messages, setMessages] = useState<Msg[]>([]);
   const [thinking, setThinking] = useState(false);
+  /** Waiting for Emma's AI reply (as opposed to "typing" a line she already has). */
+  const [waiting, setWaiting] = useState(false);
   const [emotion, setEmotion] = useState<EmmaState>('happy');
   const [opening] = useState(() => openConversation(scenario, topic, name, level));
   const [suggestions, setSuggestions] = useState<string[]>(opening.suggestions);
@@ -176,6 +189,9 @@ function Conversation({ scenario, topic }: { scenario?: GuidedScenario; topic?: 
   /** Emma "types" and speaks each line in turn. */
   const emmaSays = useCallback(
     async (lines: Line[], state: EmmaState = 'happy', alive: () => boolean = () => mounted.current) => {
+      const style = styleFor(state);
+      // Start loading her voice for every line now, so it's ready the moment the text appears.
+      if (autoplay) for (const line of lines) voiceService.prefetch(personalise(line.spanish, name).replace(/\*/g, ''), { lang: 'es', style });
       for (const line of lines) {
         if (!alive()) return;
         setThinking(true);
@@ -183,7 +199,7 @@ function Conversation({ scenario, topic }: { scenario?: GuidedScenario; topic?: 
         if (!alive()) return;
         setThinking(false);
         push({ role: 'emma', text: line.spanish, translation: line.english, state });
-        if (autoplay) await voiceService.saySpanish(personalise(line.spanish, name));
+        if (autoplay) await voiceService.saySpanish(personalise(line.spanish, name), { style });
       }
     },
     [push, autoplay, name],
@@ -242,6 +258,7 @@ function Conversation({ scenario, topic }: { scenario?: GuidedScenario; topic?: 
   const respondAi = useCallback(
     async (reply: Reply) => {
       setThinking(true);
+      setWaiting(true);
       try {
         const res = await fetchEmmaReply(
           {
@@ -255,6 +272,7 @@ function Conversation({ scenario, topic }: { scenario?: GuidedScenario; topic?: 
         );
         if (!mounted.current) return;
         setThinking(false);
+        setWaiting(false);
         setMessages((m) => m.map((msg) => (msg.role === 'player' && msg.status === null ? { ...msg, status: res.correction.hasMistake ? 'fix' : 'ok' } : msg)));
         if (res.correction.hasMistake) {
           soundService.play('incorrect');
@@ -270,6 +288,7 @@ function Conversation({ scenario, topic }: { scenario?: GuidedScenario; topic?: 
       } catch (error) {
         if (!mounted.current) return;
         setThinking(false);
+        setWaiting(false);
         transcript.current.pop();
         const message =
           error instanceof ChatRequestError
@@ -380,8 +399,23 @@ function Conversation({ scenario, topic }: { scenario?: GuidedScenario; topic?: 
   };
 
   const speakingPaused = Boolean(pausedUntil && now && pausedUntil > now);
-  const avatarState: EmmaState = listening ? 'listening' : speaking ? 'speaking' : thinking ? 'thinking' : emotion;
-  const status = listening ? 'Listening…' : speaking ? 'Speaking…' : thinking ? 'Typing…' : mode === 'ai' ? 'AI conversation' : 'Guided conversation';
+  // Listening → Thinking… → Emma responds.
+  const avatarState: EmmaState = listening ? 'listening' : speaking && !paused && !preparing ? 'speaking' : waiting || thinking || preparing ? 'thinking' : emotion;
+  const status = listening
+    ? 'Listening…'
+    : speaking
+      ? paused
+        ? 'Paused'
+        : preparing
+          ? 'Getting ready…'
+          : 'Speaking…'
+      : waiting
+        ? 'Thinking…'
+        : thinking
+          ? 'Typing…'
+          : mode === 'ai'
+            ? 'AI conversation'
+            : 'Guided conversation';
 
   return (
     <div className="paper flex h-dvh flex-col">
@@ -398,8 +432,11 @@ function Conversation({ scenario, topic }: { scenario?: GuidedScenario; topic?: 
           <EmmaAvatar state={avatarState} size={44} />
           <div className="min-w-0 flex-1">
             <p className="truncate font-extrabold">{title}</p>
-            <p className="truncate text-xs font-bold text-ink-soft" aria-live="polite">
-              {status}
+            <p className="flex items-center gap-2 text-xs font-bold text-ink-soft">
+              <span className="truncate" aria-live="polite">
+                {status}
+              </span>
+              <VoiceControls />
             </p>
           </div>
           <VoiceModeToggle />

@@ -87,7 +87,7 @@ export function GameResults({ game, summary, onReplay }: { game: GameDef; summar
   useEffect(() => {
     soundService.play(record ? 'record' : 'complete');
     const coin = window.setTimeout(() => soundService.play('coin'), 900);
-    const t = window.setTimeout(() => void voiceService.say(line.replace(/¡[^!]*!/, (m) => `*${m}*`)), 700);
+    const t = window.setTimeout(() => void voiceService.say(line.replace(/¡[^!]*!/, (m) => `*${m}*`), { style: record ? 'excited' : 'cheerful' }), 700);
     setToastsPaused(true);
     const resume = window.setTimeout(() => setToastsPaused(false), 2400);
     return () => {

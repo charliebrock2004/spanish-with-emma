@@ -7,4 +7,6 @@ export interface Capabilities {
   /** The API routes need the APP_ACCESS_CODE (entered once in Settings). */
   accessCodeRequired: boolean;
   ttsProvider: 'openai' | 'elevenlabs' | null;
+  /** "fallback" when ElevenLabs is using the documented stand-in voice (no EMMA_VOICE_ID). */
+  ttsVoice?: 'custom' | 'fallback' | null;
 }

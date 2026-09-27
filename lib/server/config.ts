@@ -12,6 +12,18 @@ export type SttProviderName = 'openai';
 
 const env = (name: string) => process.env[name]?.trim() || undefined;
 
+/**
+ * The ElevenLabs voice used when no voice ID is configured: the premade
+ * voice "Lily" — warm, young-sounding, British female. It is NOT Scottish;
+ * it's only here so an ElevenLabs key works straight away. For Emma's real
+ * voice, pick (or design) a Scottish voice in ElevenLabs and set
+ * EMMA_VOICE_ID — see "Choosing Emma's voice" in the README.
+ */
+export const ELEVENLABS_FALLBACK_VOICE = { id: 'pFZP5JQG7iQjIQuC4Bku', name: 'Lily (premade, British)' } as const;
+
+const elevenLabsEnglish = env('EMMA_ENGLISH_VOICE_ID') ?? env('EMMA_VOICE_ID') ?? env('ELEVENLABS_VOICE_ID_EN');
+const elevenLabsSpanish = env('EMMA_SPANISH_VOICE_ID') ?? env('ELEVENLABS_VOICE_ID_ES');
+
 export const serverConfig = {
   anthropicKey: env('ANTHROPIC_API_KEY'),
   anthropicModel: env('ANTHROPIC_MODEL') ?? 'claude-opus-5',
@@ -20,23 +32,33 @@ export const serverConfig = {
   openaiTtsVoice: env('OPENAI_TTS_VOICE') ?? 'coral',
   openaiSttModel: env('OPENAI_STT_MODEL') ?? 'gpt-4o-mini-transcribe',
   elevenLabsKey: env('ELEVENLABS_API_KEY'),
-  elevenLabsVoiceEnglish: env('ELEVENLABS_VOICE_ID_EN'),
-  elevenLabsVoiceSpanish: env('ELEVENLABS_VOICE_ID_ES'),
+  /** Emma's English (Scottish) voice. */
+  elevenLabsVoiceEnglish: elevenLabsEnglish ?? ELEVENLABS_FALLBACK_VOICE.id,
+  /** Emma's Spanish voice — falls back to her English voice speaking Spanish (multilingual model). */
+  elevenLabsVoiceSpanish: elevenLabsSpanish ?? elevenLabsEnglish ?? ELEVENLABS_FALLBACK_VOICE.id,
+  /** A voice ID was set, rather than relying on the documented fallback. */
+  elevenLabsVoiceConfigured: Boolean(elevenLabsEnglish),
   elevenLabsModel: env('ELEVENLABS_MODEL') ?? 'eleven_multilingual_v2',
   accessCode: env('APP_ACCESS_CODE'),
-  ttsPreference: env('TTS_PROVIDER') as TtsProviderName | 'none' | undefined,
+  ttsPreference: (env('EMMA_TTS_PROVIDER') ?? env('TTS_PROVIDER')) as TtsProviderName | 'none' | undefined,
   sttPreference: env('STT_PROVIDER') as SttProviderName | 'none' | undefined,
 };
 
-export function ttsProvider(): TtsProviderName | null {
+/** Cloud voices in the order to try them: the preferred one first, then any other configured one. */
+export function ttsProviders(): TtsProviderName[] {
   const pref = serverConfig.ttsPreference;
-  if (pref === 'none') return null;
-  const elevenReady = Boolean(serverConfig.elevenLabsKey && (serverConfig.elevenLabsVoiceEnglish || serverConfig.elevenLabsVoiceSpanish));
-  if (pref === 'elevenlabs') return elevenReady ? 'elevenlabs' : null;
-  if (pref === 'openai') return serverConfig.openaiKey ? 'openai' : null;
-  if (elevenReady) return 'elevenlabs';
-  if (serverConfig.openaiKey) return 'openai';
-  return null;
+  if (pref === 'none') return [];
+  const available: TtsProviderName[] = [];
+  if (serverConfig.elevenLabsKey) available.push('elevenlabs');
+  if (serverConfig.openaiKey) available.push('openai');
+  // The preferred voice first; anything else configured is a fallback.
+  if (pref === 'openai' || pref === 'elevenlabs') return [...available.filter((p) => p === pref), ...available.filter((p) => p !== pref)];
+  return available;
+}
+
+/** The primary cloud voice (ElevenLabs by default when its key is set). */
+export function ttsProvider(): TtsProviderName | null {
+  return ttsProviders()[0] ?? null;
 }
 
 export function sttProvider(): SttProviderName | null {
@@ -52,5 +74,6 @@ export function getCapabilities(): Capabilities {
     cloudStt: sttProvider() !== null,
     accessCodeRequired: Boolean(serverConfig.accessCode),
     ttsProvider: tts,
+    ttsVoice: tts === 'elevenlabs' ? (serverConfig.elevenLabsVoiceConfigured ? 'custom' : 'fallback') : tts ? 'custom' : null,
   };
 }

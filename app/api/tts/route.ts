@@ -2,27 +2,35 @@ import type { NextRequest } from 'next/server';
 import { SpeechError, synthesise } from '@/lib/ai/speech';
 import { ttsProvider } from '@/lib/server/config';
 import { guard, jsonError } from '@/lib/server/guard';
+import { isVoiceStyle } from '@/lib/voice/prepare';
 
 export const maxDuration = 30;
 
-/** GET /api/tts?lang=es&text=… → audio/mpeg (cached at the edge per phrase). */
+/**
+ * GET /api/tts?lang=es&style=cheerful&text=… → audio/mpeg, streamed as it's
+ * generated so playback can start before the whole line is ready. The same
+ * phrase and style always sound the same, so browsers and the CDN cache it.
+ */
 export async function GET(request: NextRequest) {
   if (!ttsProvider()) return jsonError(503, 'not-configured', 'No cloud voice is configured on the server.');
-  const blocked = guard(request, { bucket: 'tts', limit: 120 });
+  const blocked = guard(request, { bucket: 'tts', limit: 150 });
   if (blocked) return blocked;
 
-  const text = request.nextUrl.searchParams.get('text')?.trim() ?? '';
-  const lang = request.nextUrl.searchParams.get('lang') === 'en' ? 'en' : 'es';
+  const params = request.nextUrl.searchParams;
+  const text = params.get('text')?.trim() ?? '';
+  const lang = params.get('lang') === 'en' ? 'en' : 'es';
+  const styleParam = params.get('style');
+  const style = isVoiceStyle(styleParam) ? styleParam : 'neutral';
   if (!text) return jsonError(400, 'bad-request', 'Nothing to say.');
-  if (text.length > 400) return jsonError(413, 'too-long', 'That text is too long to speak.');
+  if (text.length > 600) return jsonError(413, 'too-long', 'That text is too long to speak.');
 
   try {
-    const audio = await synthesise(text, lang);
-    return new Response(audio, {
+    const speech = await synthesise(text, lang, style);
+    return new Response(speech.audio, {
       headers: {
         'Content-Type': 'audio/mpeg',
-        // The same phrase always sounds the same — let browsers and the CDN keep it.
         'Cache-Control': 'public, max-age=604800, s-maxage=2592000, immutable',
+        'X-Voice-Provider': speech.provider,
       },
     });
   } catch (error) {

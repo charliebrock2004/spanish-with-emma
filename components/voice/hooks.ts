@@ -6,7 +6,7 @@ import { useGameStore } from '@/store/gameStore';
 import { toVoiceError } from '@/services/voice/errors';
 import type { ListenSession, RecognitionLang, RecognitionResult, VoiceError } from '@/services/voice/types';
 
-const SERVER_STATUS: VoiceStatus = { speaking: false, listening: false };
+const SERVER_STATUS: VoiceStatus = { speaking: false, listening: false, paused: false, preparing: false };
 
 /** Whether Emma is currently speaking or listening (drives her animation). */
 export function useVoiceStatus(): VoiceStatus {

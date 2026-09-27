@@ -366,7 +366,7 @@ function outfitMask({ data, width, height }, zone) {
 
 /** Recolours the outfit: dark → fabric colour (line art a touch darker), light → dot colour. */
 function recolour(cutout, zone, { fabric, dots }) {
-  const { data, width, height } = cutout;
+  const { data } = cutout;
   const mask = outfitMask(cutout, zone);
   const f = hex(fabric);
   const d = hex(dots);

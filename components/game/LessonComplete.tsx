@@ -109,7 +109,7 @@ export function LevelUpCelebration({ completed, next, onContinue }: { completed:
   useEffect(() => {
     soundService.play('levelUp');
     const line = opened ? `*¡Enhorabuena!* You've finished ${done.name}. ${opened.welcome}` : "*¡Enhorabuena!* You've finished the whole journey. I'm so proud of you.";
-    const t = window.setTimeout(() => void voiceService.say(line), 600);
+    const t = window.setTimeout(() => void voiceService.say(line, { style: 'excited' }), 600);
     return () => window.clearTimeout(t);
   }, [done, opened]);
 
@@ -177,7 +177,7 @@ export function LessonComplete({
   useEffect(() => {
     soundService.play(summary.perfect ? 'record' : 'complete');
     const coin = window.setTimeout(() => soundService.play('coin'), 900);
-    const s = window.setTimeout(() => void voiceService.say(line.replace(/¡[^!]*!/, (m) => `*${m}*`)), 900);
+    const s = window.setTimeout(() => void voiceService.say(line.replace(/¡[^!]*!/, (m) => `*${m}*`), { style: summary.perfect ? 'excited' : 'cheerful' }), 900);
     // Let the results land before quest toasts and level-ups join in.
     setToastsPaused(true);
     const resume = window.setTimeout(() => setToastsPaused(false), 2600);

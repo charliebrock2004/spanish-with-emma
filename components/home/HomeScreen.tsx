@@ -79,7 +79,7 @@ function Stage({ mood, children }: { mood: Mood; children?: React.ReactNode }) {
         type="button"
         onClick={() => {
           setTapped(true);
-          void voiceService.say(mood.line.replace(/¡[^!]*!/, (m) => `*${m}*`));
+          void voiceService.say(mood.line.replace(/¡[^!]*!/, (m) => `*${m}*`), { style: mood.state === 'sleepy' ? 'calm' : mood.state === 'encouraging' ? 'gentle' : 'cheerful' });
         }}
         className="absolute -right-2 -bottom-24 w-[52%] max-w-[240px]"
         aria-label="Hear Emma"

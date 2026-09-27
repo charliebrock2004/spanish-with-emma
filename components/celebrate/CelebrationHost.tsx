@@ -164,7 +164,7 @@ function Moment({ event, onDone }: { event: MomentEvent; onDone: () => void }) {
     soundService.play(event.kind === 'level-up' ? 'levelUp' : 'record');
     const focus = window.setTimeout(() => buttonRef.current?.focus({ preventScroll: true }), 400);
     // Emma says the big ones out loud.
-    const say = event.kind === 'level-up' ? null : window.setTimeout(() => void voiceService.say(line.replace(/¡[^!]*!/, (m) => `*${m}*`)), 700);
+    const say = event.kind === 'level-up' ? null : window.setTimeout(() => void voiceService.say(line.replace(/¡[^!]*!/, (m) => `*${m}*`), { style: 'excited' }), 700);
     return () => {
       window.clearTimeout(focus);
       if (say) window.clearTimeout(say);

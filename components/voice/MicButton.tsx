@@ -4,6 +4,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Spinner } from '@/components/ui/primitives';
 import { cn } from '@/lib/utils';
 import type { ListenState } from './hooks';
+import { VoiceWave } from './VoiceControls';
 
 /** The big microphone button: tap to speak, tap again to stop. */
 export function MicButton({
@@ -59,7 +60,8 @@ export function MicButton({
           )}
         </button>
       </div>
-      <p className="text-sm font-extrabold text-ink-soft" aria-live="polite">
+      <p className="flex items-center gap-2 text-sm font-extrabold text-ink-soft" aria-live="polite">
+        {listening && <VoiceWave active />}
         {listening ? 'Listening… tap when you’re done' : processing ? 'Checking…' : label}
       </p>
     </div>

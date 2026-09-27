@@ -6,6 +6,7 @@ import type { EmmaState } from '@/components/emma/emma';
 import { EmmaText } from '@/components/emma/EmmaText';
 import { Icon } from '@/components/ui/Icon';
 import { useSpeaker } from '@/components/voice/hooks';
+import { bubbleFor, useEquipped } from '@/components/cosmetics/cosmetics';
 import { cn, personalise } from '@/lib/utils';
 
 export function EmmaBubble({
@@ -27,6 +28,7 @@ export function EmmaBubble({
 }) {
   const [showEnglish, setShowEnglish] = useState(false);
   const { say, activeKey } = useSpeaker();
+  const bubble = bubbleFor(useEquipped().bubble);
   const shown = personalise(text, name);
   const playing = activeKey === `bubble:${text}`;
 
@@ -36,8 +38,9 @@ export function EmmaBubble({
       <div
         className={cn(
           'relative max-w-[82%] rounded-3xl rounded-bl-md px-4 py-3 shadow-card',
-          tone === 'correction' ? 'border border-honey/40 bg-honey-light' : 'bg-paper',
+          tone === 'correction' ? 'border border-honey/40 bg-honey-light' : bubble.className,
         )}
+        style={tone === 'correction' ? undefined : bubble.style}
       >
         <p className="text-[17px] leading-snug font-semibold" lang={lang}>
           <EmmaText text={shown} lang={lang} />
@@ -51,6 +54,14 @@ export function EmmaBubble({
             className={cn('grid h-9 w-9 place-items-center rounded-full text-ink-faint hover:bg-cream-deep hover:text-terracotta', playing && 'text-terracotta')}
           >
             <Icon name="speaker" size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={() => void say(lang === 'es' ? `*${shown.replace(/\*/g, '')}*` : shown, { key: `slow:${text}`, includeEnglish: true, rateFactor: 0.7 })}
+            aria-label="Hear it slowly"
+            className={cn('grid h-9 w-9 place-items-center rounded-full text-ink-faint hover:bg-cream-deep hover:text-terracotta', activeKey === `slow:${text}` && 'text-terracotta')}
+          >
+            <Icon name="turtle" size={18} />
           </button>
           {translation && (
             <button

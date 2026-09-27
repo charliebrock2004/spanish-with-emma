@@ -1,16 +1,25 @@
+import type { VoiceStyle } from '@/lib/voice/prepare';
 import { VoiceError, type ProviderContext, type SpeakRequest, type SpeechLang, type TtsProvider } from './types';
 
 /**
- * Text-to-speech through our own `/api/tts` route (OpenAI or ElevenLabs on the
- * server — keys never reach the browser). Audio is cached per phrase, and a
- * single <audio> element is reused because iOS only lets an element play after
- * it has been "unlocked" by a user gesture.
+ * Text-to-speech through our own `/api/tts` route (ElevenLabs or OpenAI on the
+ * server — keys never reach the browser).
+ *
+ * Latency: the first chunk of a line streams straight into the audio element
+ * (it starts playing while it's still being generated); the chunks after it
+ * are fetched in the background while the first one plays. Anything fetched
+ * is cached per phrase + style, so replays are instant. A single <audio>
+ * element is reused because iOS only lets an element play after it has been
+ * "unlocked" by a user gesture.
  */
 
-const SILENT_WAV =
-  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
 
 const MAX_CACHE = 80;
+
+export function ttsUrl(text: string, lang: SpeechLang, style: VoiceStyle = 'neutral'): string {
+  return `/api/tts?${new URLSearchParams({ lang, style, text })}`;
+}
 
 class CloudTts implements TtsProvider {
   readonly id = 'cloud' as const;
@@ -40,13 +49,12 @@ class CloudTts implements TtsProvider {
     });
   }
 
-  private fetchAudio(text: string, lang: SpeechLang, context: ProviderContext): Promise<string> {
-    const cacheKey = `${lang}:${text}`;
+  private fetchAudio(text: string, lang: SpeechLang, style: VoiceStyle, context: ProviderContext): Promise<string> {
+    const cacheKey = `${lang}:${style}:${text}`;
     const cached = this.cache.get(cacheKey);
     if (cached) return cached;
     const request = (async () => {
-      const params = new URLSearchParams({ lang, text });
-      const res = await fetch(`/api/tts?${params}`, {
+      const res = await fetch(ttsUrl(text, lang, style), {
         headers: context.accessCode ? { 'x-access-code': context.accessCode } : undefined,
       });
       if (res.status === 401) throw new VoiceError('unauthorized');
@@ -67,19 +75,29 @@ class CloudTts implements TtsProvider {
     return request;
   }
 
-  prefetch(text: string, lang: SpeechLang, context: ProviderContext): void {
+  prefetch(text: string, lang: SpeechLang, context: ProviderContext, style: VoiceStyle = 'neutral'): void {
     if (!this.isSupported()) return;
-    this.fetchAudio(text, lang, context).catch(() => {});
+    this.fetchAudio(text, lang, style, context).catch(() => {});
   }
 
   cancel(): void {
     if (this.audio) this.audio.pause();
   }
 
-  async speak({ text, lang, rate, signal }: SpeakRequest, context: ProviderContext): Promise<void> {
-    let url: string;
+  pause(): void {
+    if (this.audio && !this.audio.paused) this.audio.pause();
+  }
+
+  resume(): void {
+    if (this.audio?.paused && this.audio.src && !this.audio.ended) this.audio.play().catch(() => {});
+  }
+
+  async speak({ text, lang, rate, signal, style = 'neutral', onStart }: SpeakRequest, context: ProviderContext): Promise<void> {
+    const key = `${lang}:${style}:${text}`;
+    let src: string;
     try {
-      url = await this.fetchAudio(text, lang, context);
+      // Already fetched (or prefetching)? Use that. Otherwise stream it when we can.
+      src = this.cache.has(key) || !context.stream ? await this.fetchAudio(text, lang, style, context) : ttsUrl(text, lang, style);
     } catch (err) {
       // Back off for a minute so the device voice takes over smoothly.
       this.failingUntil = Date.now() + 60_000;
@@ -88,13 +106,14 @@ class CloudTts implements TtsProvider {
     if (signal.aborted) return;
     const el = this.element();
     el.pause();
-    el.src = url;
+    el.src = src;
     el.playbackRate = Math.min(1.3, Math.max(0.6, rate));
     (el as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch = true;
     await new Promise<void>((resolve, reject) => {
       const cleanup = () => {
         el.onended = null;
         el.onerror = null;
+        el.onplaying = null;
         signal.removeEventListener('abort', onAbort);
       };
       const onAbort = () => {
@@ -102,12 +121,15 @@ class CloudTts implements TtsProvider {
         cleanup();
         resolve();
       };
+      el.onplaying = () => onStart?.();
       el.onended = () => {
         cleanup();
         resolve();
       };
       el.onerror = () => {
         cleanup();
+        // A streamed request that failed (e.g. the provider is down): let the device voice take over for a bit.
+        this.failingUntil = Date.now() + 60_000;
         reject(new VoiceError('tts-failed'));
       };
       signal.addEventListener('abort', onAbort);

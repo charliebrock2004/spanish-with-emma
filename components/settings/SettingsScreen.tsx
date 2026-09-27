@@ -234,7 +234,7 @@ export function SettingsScreen() {
   const scottishAvailable = voices?.en.some((v) => v.scottish) ?? false;
 
   const testVoice = () => {
-    void voiceService.say(`*¡Hola, ${name || 'amigo'}!* I'm Emma. *¿Qué tal estás?* Let's learn some Spanish together.`, { includeEnglish: true });
+    void voiceService.say(`*¡Hola, ${name || 'amigo'}!* I'm Emma. *¿Qué tal estás?* Let's learn some Spanish together.`, { includeEnglish: true, style: 'cheerful' });
   };
 
   const exportProgress = () => {
@@ -549,6 +549,11 @@ export function SettingsScreen() {
               {caps.cloudTts ? `On — ${caps.ttsProvider === 'elevenlabs' ? 'ElevenLabs' : caps.ttsProvider === 'openai' ? 'OpenAI' : 'server'}` : 'Off — device voices'}
             </span>
           </li>
+          {caps.ttsVoice === 'fallback' && (
+            <li className="rounded-xl bg-cream px-3 py-2 text-xs text-ink-soft">
+              ElevenLabs is using its stand-in British voice. Set <code>EMMA_VOICE_ID</code> on the server to give Emma her Scottish voice (see the README).
+            </li>
+          )}
           <li className="flex justify-between gap-4">
             <span className="text-ink-soft">Server speech recognition</span>
             <span className={cn('font-bold', caps.cloudStt ? 'text-sage-dark' : 'text-ink-faint')}>{caps.cloudStt ? 'On' : 'Off — device only'}</span>

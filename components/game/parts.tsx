@@ -1,5 +1,6 @@
 'use client';
 
+import { EmmaBubble } from '@/components/cosmetics/cosmetics';
 import { useRef, type ReactNode, type RefObject } from 'react';
 import { EmmaAvatar } from '@/components/emma/EmmaAvatar';
 import type { EmmaState } from '@/components/emma/emma';
@@ -23,16 +24,17 @@ export function PromptBubble({
   className?: string;
   children?: ReactNode;
 }) {
-  const { speaking } = useVoiceStatus();
+  const { speaking, paused, preparing } = useVoiceStatus();
+  const emma: EmmaState = state ?? (speaking && !paused && !preparing ? 'speaking' : preparing ? 'thinking' : 'happy');
   return (
     <div className={cn('flex items-start gap-3', className)}>
-      <EmmaAvatar state={state ?? (speaking ? 'speaking' : 'happy')} size={52} />
-      <div className="relative mt-1 min-w-0 flex-1 rounded-2xl rounded-tl-md bg-paper px-4 py-3 shadow-card">
+      <EmmaAvatar state={emma} size={52} />
+      <EmmaBubble tail="none" className="relative mt-1 min-w-0 flex-1 rounded-2xl rounded-tl-md">
         <h2 className="text-[17px] leading-snug font-bold">
           <EmmaText text={text} name={name} />
         </h2>
         {children}
-      </div>
+      </EmmaBubble>
     </div>
   );
 }
