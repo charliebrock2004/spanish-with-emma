@@ -91,9 +91,12 @@ export function useListener(lang: RecognitionLang = 'es-ES') {
       onProcessing: () => setState('processing'),
     });
     session.current = current;
+    const startedAt = Date.now();
     try {
       const result = await current.result;
       if (session.current === current) setState('idle');
+      // Time at the microphone counts towards the profile's speaking time.
+      if (result) useGameStore.getState().addSpeakingTime(Math.round((Date.now() - startedAt) / 1000));
       return result;
     } catch (err) {
       const voiceError = toVoiceError(err);

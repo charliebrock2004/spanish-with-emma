@@ -72,14 +72,16 @@ export function ChestIcon({ size = 40, className, open = false, tone = 'wood' }:
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" className={cn('shrink-0', className)} aria-hidden>
       <ellipse cx="24" cy="43.5" rx="17" ry="2.5" fill="#2a2320" opacity="0.15" />
-      <rect x="7" y="21" width="34" height="20" rx="3" fill={palette.body} stroke={palette.dark} strokeWidth="1.5" />
-      <rect x="7" y="27" width="34" height="3.5" fill={palette.dark} opacity="0.35" />
-      <rect x="21" y="21" width="6" height="20" fill={palette.band} stroke={palette.dark} strokeWidth="1" />
+      {!open && <Body palette={palette} />}
       {open ? (
         <>
-          <path d="M9 21 L13 8 h22 l4 13z" fill={palette.dark} />
-          <path d="M11 20 L14.5 9.5 h19 L37 20z" fill="#2a2320" opacity="0.55" />
-          <circle cx="24" cy="16" r="6" fill="#fff4cf" opacity="0.9" />
+          <path d="M9 21 L11.5 7.5 Q24 3.5 36.5 7.5 L39 21z" fill={palette.light} stroke={palette.dark} strokeWidth="1.5" strokeLinejoin="round" />
+          <path d="M12 20 L13.6 10 Q24 7 34.4 10 L36 20z" fill={palette.dark} opacity="0.55" />
+          <ellipse cx="24" cy="20.5" rx="13" ry="4.5" fill="#fff4cf" />
+          <circle cx="18.5" cy="19.8" r="2.6" fill="#f2c14e" stroke="#c9962a" strokeWidth="0.7" />
+          <circle cx="24.5" cy="18.8" r="2.8" fill="#ffe08a" stroke="#c9962a" strokeWidth="0.7" />
+          <circle cx="30" cy="20.2" r="2.4" fill="#f2c14e" stroke="#c9962a" strokeWidth="0.7" />
+          <path d="M24 2.5v3M16 4.5l1.4 2.6M32 4.5l-1.4 2.6" stroke="#ffe08a" strokeWidth="1.6" strokeLinecap="round" />
         </>
       ) : (
         <>
@@ -89,6 +91,17 @@ export function ChestIcon({ size = 40, className, open = false, tone = 'wood' }:
           <circle cx="24" cy="22" r="1.1" fill={palette.dark} />
         </>
       )}
+      {open && <Body palette={palette} />}
     </svg>
+  );
+}
+
+function Body({ palette }: { palette: { body: string; dark: string; band: string } }) {
+  return (
+    <>
+      <rect x="7" y="21" width="34" height="20" rx="3" fill={palette.body} stroke={palette.dark} strokeWidth="1.5" />
+      <rect x="7" y="27" width="34" height="3.5" fill={palette.dark} opacity="0.35" />
+      <rect x="21" y="21" width="6" height="20" fill={palette.band} stroke={palette.dark} strokeWidth="1" />
+    </>
   );
 }

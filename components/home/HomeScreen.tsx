@@ -1,201 +1,278 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { EmmaBubble, SceneBackdrop, sceneFor, useEquipped } from '@/components/cosmetics/cosmetics';
 import { EmmaPortrait } from '@/components/emma/EmmaFigure';
+import type { EmmaState } from '@/components/emma/emma';
+import { ChestIcon, CoinIcon, FlameIcon } from '@/components/game-ui/icons';
+import { LevelBadge, XpBar } from '@/components/game-ui/parts';
+import { DailyQuestList, TomorrowPreview, WeeklyCard } from '@/components/quests/QuestParts';
 import { ButtonLink } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
-import { AnimatedNumber, Card, ProgressBar, ProgressRing } from '@/components/ui/primitives';
-import { computeJourney } from '@/lib/progress/journey';
+import { Card } from '@/components/ui/primitives';
+import { useVoiceStatus } from '@/components/voice/hooks';
+import { REGIONS } from '@/data/regions';
+import { CHESTS } from '@/lib/game/chests';
+import { levelUpReward } from '@/lib/game/economy';
+import { playerLevelFromXp } from '@/lib/game/levels';
+import { allQuestsDone } from '@/lib/game/quests';
+import { nextMilestone } from '@/lib/game/streakRewards';
+import { useNow } from '@/lib/hooks/useNow';
 import { localDateKey } from '@/lib/progress/dates';
+import { computeJourney } from '@/lib/progress/journey';
 import { reviewQueue } from '@/lib/progress/srs';
 import { streakStatus } from '@/lib/progress/streak';
+import { voiceService } from '@/services/voice/VoiceService';
 import { useGameStore } from '@/store/gameStore';
-import { useNow } from '@/lib/hooks/useNow';
+import { useUiStore } from '@/store/uiStore';
 import type { LessonSummary, LevelMeta } from '@/types/curriculum';
-import { cn } from '@/lib/utils';
+import { cn, formatNumber } from '@/lib/utils';
 
-function greetingForHour(hour: number) {
-  if (hour >= 5 && hour < 13) return { es: '¡Buenos días!', en: 'Ready for a little Spanish before the day gets going?' };
-  if (hour >= 13 && hour < 20) return { es: '¡Buenas tardes!', en: "Perfect time for a quick lesson — I'll keep it fun." };
-  return { es: '¡Buenas noches!', en: 'One more lesson before bed? Your brain will thank you.' };
+interface Mood {
+  state: EmmaState;
+  line: string;
 }
 
-function StatTile({ emoji, value, label, tone }: { emoji: string; value: React.ReactNode; label: string; tone: string }) {
+function greeting(hour: number, name: string) {
+  const who = name || 'amigo';
+  if (hour >= 5 && hour < 13) return `¡Buenos días, ${who}!`;
+  if (hour >= 13 && hour < 20) return `¡Buenas tardes, ${who}!`;
+  return `¡Buenas noches, ${who}!`;
+}
+
+/** What Emma says on the Home screen — she notices what's going on. */
+function useMood(): Mood {
+  const name = useGameStore((s) => s.profile.name);
+  const lessons = useGameStore((s) => Object.keys(s.completedLessons).length);
+  const streak = useGameStore((s) => s.streak);
+  const quests = useGameStore((s) => s.quests);
+  const unopened = useGameStore((s) => s.chests.filter((c) => !c.openedAt).length);
+  const now = useNow();
+  return useMemo(() => {
+    const hour = now ? new Date(now).getHours() : 12;
+    const hello = greeting(hour, name);
+    const status = streakStatus(streak, localDateKey());
+    if (lessons === 0) return { state: 'excited', line: `${hello} I'm Emma. Let's get your very first Spanish words sorted — it takes five minutes.` };
+    if (unopened > 0) return { state: 'excited', line: `${hello} Ooh — you've got ${unopened === 1 ? 'a chest' : `${unopened} chests`} to open. Go on…` };
+    if (allQuestsDone(quests)) return { state: 'proud', line: `${hello} Every quest done today. ¡Qué crack! Anything else is a bonus.` };
+    if (hour >= 22 || hour < 5) return { state: 'sleepy', line: `${hello} It's late… one wee lesson and then bed?` };
+    if (status.lapsed && streak.longest > 1) return { state: 'happy', line: `${hello} No guilt — let's just pick up where we left off.` };
+    if (status.atRisk && status.display > 0) return { state: 'encouraging', line: `${hello} Your ${status.display}-day streak is waiting for you. One quick lesson?` };
+    if (status.activeToday) return { state: 'happy', line: `${hello} Nice work today. Fancy a quest or a wee chat?` };
+    return { state: 'happy', line: `${hello} Ready for a little Spanish?` };
+  }, [name, lessons, streak, quests, unopened, now]);
+}
+
+/** Emma on her stage, in the player's chosen outfit and background. Tap her to hear her. */
+function Stage({ mood, children }: { mood: Mood; children?: React.ReactNode }) {
+  const name = useGameStore((s) => s.profile.name);
+  const equipped = useEquipped();
+  const dark = sceneFor(equipped.background).tone === 'dark';
+  const { speaking } = useVoiceStatus();
+  const [tapped, setTapped] = useState(false);
+  const state: EmmaState = speaking && tapped ? 'speaking' : mood.state;
   return (
-    <div className={cn('flex flex-col items-start rounded-2xl px-3 py-3', tone)}>
-      <span className="text-xl leading-none" aria-hidden>
-        {emoji}
-      </span>
-      <span className="mt-2 text-2xl leading-none font-black tabular-nums">{value}</span>
-      <span className="mt-1 text-xs leading-tight font-bold text-ink-soft">{label}</span>
+    <section className="relative isolate min-h-[272px] animate-enter overflow-hidden rounded-[2rem] shadow-lift" aria-label="Emma">
+      <SceneBackdrop id={equipped.background} />
+      <button
+        type="button"
+        onClick={() => {
+          setTapped(true);
+          void voiceService.say(mood.line.replace(/¡[^!]*!/, (m) => `*${m}*`));
+        }}
+        className="absolute -right-2 -bottom-24 w-[52%] max-w-[240px]"
+        aria-label="Hear Emma"
+      >
+        <EmmaPortrait state={state} width={240} priority className="w-full drop-shadow-xl" />
+      </button>
+      <div className="relative z-10 max-w-[58%] px-4 pt-5 pb-5">
+        <h1 className={cn('font-display text-[28px] leading-[1.05] font-semibold tracking-tight', dark ? 'text-cream' : 'text-ink')}>
+          Hola {name || 'amigo'} <span className="inline-block origin-bottom-right animate-tilt">👋</span>
+        </h1>
+        <EmmaBubble className="mt-3 animate-pop" tail="left">
+          <p className="text-[15px] leading-snug font-bold">{mood.line}</p>
+        </EmmaBubble>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/** The next thing worth earning, with a bar towards it. */
+function NextReward() {
+  const xp = useGameStore((s) => s.xp);
+  const streak = useGameStore((s) => s.streak);
+  const level = playerLevelFromXp(xp);
+  const reward = levelUpReward(level.level + 1);
+  const milestone = nextMilestone(streak.current);
+  return (
+    <div className="mt-3 grid grid-cols-2 gap-2">
+      <Link href="/profile" className="rounded-2xl bg-paper px-3 py-2.5 shadow-card active:scale-[0.98]">
+        <span className="flex items-center gap-2">
+          <LevelBadge level={level.level + 1} progress={level.progress} size={30} />
+          <span className="min-w-0 text-xs leading-tight font-extrabold">
+            Level {level.level + 1}
+            <span className="block font-bold text-ink-soft">{formatNumber(level.xpForNext - level.xpInto)} XP to go</span>
+          </span>
+        </span>
+        <XpBar progress={level.progress} className="mt-2" />
+        <span className="mt-1.5 flex items-center gap-1 text-[11px] font-extrabold text-ink-soft">
+          +{reward.coins} <CoinIcon size={12} /> {reward.chest ? '+ chest' : ''}
+        </span>
+      </Link>
+      <Link href="/quests#streak" className="rounded-2xl bg-paper px-3 py-2.5 shadow-card active:scale-[0.98]">
+        <span className="flex items-center gap-2">
+          <FlameIcon size={30} lit={streak.current > 0} />
+          <span className="min-w-0 text-xs leading-tight font-extrabold">
+            {milestone ? `${milestone.days} day streak` : 'Legend status'}
+            <span className="block font-bold text-ink-soft">{milestone ? `${milestone.days - streak.current} day${milestone.days - streak.current === 1 ? '' : 's'} to go` : 'You did it'}</span>
+          </span>
+        </span>
+        <XpBar progress={milestone ? streak.current / milestone.days : 1} className="mt-2" />
+        {milestone && (
+          <span className="mt-1.5 flex items-center gap-1 text-[11px] font-extrabold text-ink-soft">
+            +{milestone.coins} <CoinIcon size={12} /> {milestone.item || milestone.chest ? '+ a surprise' : ''}
+          </span>
+        )}
+      </Link>
     </div>
   );
 }
 
+function ChestShelf() {
+  const all = useGameStore((s) => s.chests);
+  const chests = useMemo(() => all.filter((c) => !c.openedAt), [all]);
+  const openChest = useUiStore((s) => s.openChest);
+  if (chests.length === 0) return null;
+  return (
+    <section className="mt-4 animate-enter rounded-[var(--radius-card)] bg-gradient-to-r from-sun-light to-[#fff4d6] p-4 shadow-card" aria-label="Chests to open">
+      <div className="flex items-center gap-3">
+        <ChestIcon size={52} tone="gold" className="animate-chest-shake" />
+        <div className="min-w-0 flex-1">
+          <p className="font-extrabold">
+            {chests.length === 1 ? 'A chest is waiting!' : `${chests.length} chests are waiting!`}
+          </p>
+          <p className="truncate text-sm text-ink-soft">{CHESTS[chests[0].kind].name} · {chests[0].source}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => openChest(chests[0].id)}
+          className="min-h-11 rounded-full bg-terracotta px-5 text-sm font-black text-white shadow-[0_3px_0_var(--color-terracotta-dark)] active:translate-y-[2px] active:shadow-none"
+        >
+          Open
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function QuickTile({ href, emoji, title, detail, tone }: { href: string; emoji: string; title: string; detail: string; tone: string }) {
+  return (
+    <Link href={href} className={cn('rounded-[var(--radius-card)] p-4 shadow-card transition-transform active:scale-[0.97]', tone)}>
+      <span className="text-2xl" aria-hidden>
+        {emoji}
+      </span>
+      <span className="mt-2 block font-extrabold">{title}</span>
+      <span className="block text-sm opacity-75">{detail}</span>
+    </Link>
+  );
+}
+
 export function HomeScreen({ lessons, levels }: { lessons: LessonSummary[]; levels: LevelMeta[] }) {
-  const name = useGameStore((s) => s.profile.name);
   const placement = useGameStore((s) => s.profile.placementLevel);
   const completed = useGameStore((s) => s.completedLessons);
-  const xp = useGameStore((s) => s.xp);
-  const streak = useGameStore((s) => s.streak);
-  const activity = useGameStore((s) => s.activity);
-  const goalMinutes = useGameStore((s) => s.settings.dailyGoalMinutes);
+  const quests = useGameStore((s) => s.quests);
+  const weekly = useGameStore((s) => s.weekly);
+  const coins = useGameStore((s) => s.coins);
   const vocab = useGameStore((s) => s.vocab);
-
-  const today = localDateKey();
-  const journey = useMemo(() => computeJourney(lessons, completed, placement), [lessons, completed, placement]);
-  const status = streakStatus(streak, today);
-  const minutesToday = Math.floor((activity[today]?.seconds ?? 0) / 60);
+  const mood = useMood();
   const now = useNow();
+
+  const journey = useMemo(() => computeJourney(lessons, completed, placement), [lessons, completed, placement]);
   const dueCount = useMemo(() => (now ? reviewQueue(vocab, now, { limit: 99 }).length : 0), [vocab, now]);
-  const greeting = greetingForHour(new Date().getHours());
-
-  const level = journey.levels.find((l) => l.level === journey.currentLevel) ?? journey.levels[0];
+  const region = REGIONS[journey.currentLevel];
   const meta = levels.find((l) => l.id === journey.currentLevel);
-  const lessonsLeft = Math.max(0, level.total - level.done);
-  const pct = level.total ? Math.round((level.done / level.total) * 100) : 0;
+  const progress = journey.levels.find((l) => l.level === journey.currentLevel);
   const next = journey.current;
-
-  const streakMessage = status.activeToday
-    ? "You've practised today — ¡genial!"
-    : status.lapsed || status.display === 0
-      ? 'Start a new streak today 🔥'
-      : 'Keep your streak alive!';
+  const firstTime = Object.keys(completed).length === 0;
+  const todayDone = allQuestsDone(quests);
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 safe-top md:pt-8">
-      {/* Top bar */}
-      <div className="flex items-center justify-between py-3 md:hidden">
-        <p className="font-display text-lg font-semibold">
-          Spanish <span className="text-terracotta italic">with</span> Emma
-        </p>
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full bg-paper px-3 py-1.5 text-sm font-extrabold shadow-card">
-            <span aria-hidden>🔥</span>
-            <span className="tabular-nums">{status.display}</span>
-            <span className="sr-only">day streak</span>
+    <div className="mx-auto w-full max-w-2xl px-4 pt-3">
+      <Stage mood={mood}>
+        <Link
+          href="/learn"
+          className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full bg-paper/85 px-3 py-1.5 text-xs font-extrabold text-ink shadow-card backdrop-blur"
+        >
+          <span aria-hidden>{region.landmark}</span>
+          <span className="truncate">
+            {region.name} · Level {journey.currentLevel}
+            {meta ? ` · ${meta.cefr}` : ''}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-paper px-3 py-1.5 text-sm font-extrabold shadow-card">
-            <span aria-hidden>⭐</span>
-            <AnimatedNumber value={xp} />
-            <span className="sr-only">XP</span>
-          </span>
-        </div>
-      </div>
+        </Link>
+      </Stage>
 
-      {/* Emma greeting */}
-      <section className="relative mt-1 min-h-[212px] animate-enter overflow-hidden rounded-[2rem] bg-gradient-to-br from-sun-light via-[#fbeede] to-terracotta-light px-5 pt-6 pb-5">
-        <div className="relative z-10 max-w-[58%]">
-          <h1 className="font-display text-[34px] leading-[1.05] font-semibold tracking-tight">
-            Hola {name || 'amigo'} <span className="inline-block origin-bottom-right animate-tilt">👋</span>
-          </h1>
-          <p className="mt-3 text-[15px] leading-snug text-ink-soft">
-            <span lang="es" className="spanish">
-              {greeting.es}
-            </span>{' '}
-            {greeting.en}
-          </p>
-        </div>
-        <EmmaPortrait state="happy" width={190} priority className="pointer-events-none absolute -right-3 -bottom-24 w-[46%] max-w-[220px]" />
-      </section>
-
-      {/* Today */}
-      <Card className="mt-4 animate-enter p-5 [animation-delay:60ms]">
-        <h2 className="font-display text-xl font-semibold">Today&rsquo;s Spanish</h2>
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <StatTile emoji="🔥" value={status.display} label={status.display === 1 ? 'day streak' : 'day streak'} tone="bg-terracotta-light/70" />
-          <StatTile emoji="⭐" value={<AnimatedNumber value={xp} />} label="XP earned" tone="bg-sun-light" />
-          <StatTile
-            emoji="🎯"
-            value={journey.finished ? '✓' : lessonsLeft}
-            label={journey.finished ? 'journey done' : lessonsLeft === 1 ? `lesson to Level ${Math.min(6, journey.currentLevel + 1)}` : `lessons to Level ${Math.min(6, journey.currentLevel + 1)}`}
-            tone="bg-sage-light"
-          />
-        </div>
-
-        <div className="mt-4 flex items-center gap-4 rounded-2xl bg-cream px-4 py-3">
-          <ProgressRing value={minutesToday / goalMinutes} size={58} stroke={7} label="Daily goal progress" tone="var(--color-sage)">
-            <span className="text-sm font-black tabular-nums">{Math.min(minutesToday, 99)}</span>
-          </ProgressRing>
-          <div className="min-w-0">
-            <p className="font-extrabold">
-              {Math.min(minutesToday, goalMinutes)} / {goalMinutes} min today
-            </p>
-            <p className="text-sm text-ink-soft">{minutesToday >= goalMinutes ? 'Daily goal done — ¡fenomenal!' : streakMessage}</p>
-          </div>
-        </div>
-
+      {/* The big button */}
+      <div className="mt-4 animate-enter [animation-delay:60ms]">
         {next ? (
-          <ButtonLink href={`/lesson/${next.id}`} size="lg" block className="mt-5" icon={<Icon name="play" size={18} filled strokeWidth={0} />}>
-            {Object.keys(completed).length === 0 ? 'Start learning' : 'Continue lesson'}
+          <ButtonLink
+            href={`/lesson/${next.id}`}
+            size="lg"
+            block
+            className="!h-auto min-h-16 flex-col !gap-0 py-2.5"
+            icon={undefined}
+            aria-label={`${firstTime ? 'Start learning' : 'Continue quest'}: ${next.title}`}
+          >
+            <span className="flex items-center gap-2 text-lg">
+              <Icon name="play" size={20} filled strokeWidth={0} /> {firstTime ? 'Start learning' : 'Continue quest'}
+            </span>
+            <span className="text-xs font-bold tracking-normal normal-case opacity-90">
+              {next.emoji} {next.title}
+              {progress ? ` · lesson ${progress.done + 1} of ${progress.total}` : ''}
+            </span>
           </ButtonLink>
         ) : (
-          <ButtonLink href="/emma" size="lg" block className="mt-5">
+          <ButtonLink href="/emma" size="lg" block>
             Talk to Emma
           </ButtonLink>
         )}
-      </Card>
+        <NextReward />
+      </div>
 
-      {/* Journey */}
-      <Card className="mt-4 animate-enter p-5 [animation-delay:120ms]">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-xl font-semibold">Your journey</h2>
-          <Link href="/learn" className="inline-flex min-h-11 items-center gap-1 text-sm font-extrabold text-terracotta">
-            Map <Icon name="chevronRight" size={16} />
-          </Link>
-        </div>
-        <div className="mt-3 flex items-center gap-3">
-          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-cream-deep text-2xl" aria-hidden>
-            {meta?.emoji}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-extrabold tracking-[0.12em] text-terracotta uppercase">Level {journey.currentLevel}</p>
-            <p className="font-display text-lg leading-tight font-semibold">{meta?.title}</p>
+      <ChestShelf />
+
+      {/* Daily quests */}
+      {quests && (
+        <Card className="mt-4 animate-enter p-4 [animation-delay:120ms]">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-xl font-semibold">{todayDone ? 'Today complete ✓' : 'Daily quests'}</h2>
+            <Link href="/quests" className="inline-flex min-h-11 items-center gap-1 text-sm font-extrabold text-terracotta">
+              All quests <Icon name="chevronRight" size={16} />
+            </Link>
           </div>
-          <span className="text-lg font-black tabular-nums">{pct}%</span>
-        </div>
-        <ProgressBar value={level.done} max={level.total} label={`Level ${journey.currentLevel} progress`} className="mt-3" />
+          <DailyQuestList daily={quests} />
+          {todayDone && <TomorrowPreview className="mt-3" />}
+        </Card>
+      )}
 
-        {next && (
-          <Link
-            href={`/lesson/${next.id}`}
-            className="mt-4 flex items-center gap-3 rounded-2xl border-2 border-sand px-3 py-3 transition-colors hover:bg-cream active:bg-cream"
-          >
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-terracotta-light text-2xl" aria-hidden>
-              {next.emoji}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-xs font-bold text-ink-soft">Next lesson</span>
-              <span className="block truncate font-extrabold">{next.title}</span>
-              <span className="block text-xs text-ink-faint">
-                {next.estimatedMinutes} min · up to {next.xpReward} XP
-              </span>
-            </span>
-            <Icon name="chevronRight" className="text-ink-faint" />
-          </Link>
-        )}
-      </Card>
+      {weekly && (
+        <Link href="/quests" className="mt-4 block animate-enter [animation-delay:180ms]">
+          <Card className="p-4 transition-transform active:scale-[0.99]">
+            <WeeklyCard weekly={weekly} compact />
+          </Card>
+        </Link>
+      )}
 
       {/* Quick actions */}
-      <div className="mt-4 grid animate-enter grid-cols-2 gap-3 [animation-delay:180ms]">
-        <Link href="/emma" className="group rounded-[var(--radius-card)] bg-ink p-4 text-cream shadow-card transition-transform active:scale-[0.98]">
-          <span className="text-2xl" aria-hidden>
-            💬
-          </span>
-          <span className="mt-3 block font-extrabold">Talk to Emma</span>
-          <span className="block text-sm text-cream/70">Practise real conversation</span>
-        </Link>
-        <Link href="/review" className="group rounded-[var(--radius-card)] border border-sand/70 bg-paper p-4 shadow-card transition-transform active:scale-[0.98]">
-          <span className="text-2xl" aria-hidden>
-            📚
-          </span>
-          <span className="mt-3 block font-extrabold">Review</span>
-          <span className="block text-sm text-ink-soft">
-            {dueCount > 0 ? `${dueCount} word${dueCount === 1 ? '' : 's'} to refresh` : 'Games & practice'}
-          </span>
-        </Link>
+      <div className="mt-4 grid animate-enter grid-cols-2 gap-3 [animation-delay:240ms]">
+        <QuickTile href="/emma" emoji="💬" title="Talk to Emma" detail="Real conversation practice" tone="bg-ink text-cream" />
+        <QuickTile href="/review" emoji="🎮" title="Games & review" detail={dueCount > 0 ? `${dueCount} word${dueCount === 1 ? '' : 's'} to refresh` : 'Six games to play'} tone="bg-paper" />
+        <QuickTile href="/shop" emoji="🛍️" title="Shop" detail={`${formatNumber(coins)} coins to spend`} tone="bg-[#fff4d6]" />
+        <QuickTile href="/learn" emoji="🗺️" title="World map" detail={`${region.name} · ${progress?.done ?? 0}/${progress?.total ?? 0}`} tone="bg-sage-light" />
       </div>
+
+      <p className="mt-6 mb-2 text-center text-xs font-bold text-ink-faint">Tip: tap Emma to hear her.</p>
     </div>
   );
 }

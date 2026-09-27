@@ -25,7 +25,7 @@ export interface WeeklyChallenge {
 const LABELS: Partial<Record<QuestMetric, (n: number) => string>> = {
   lessons: (n) => `${n} lessons`,
   conversations: (n) => `${n} conversations`,
-  speaking: (n) => `${n} spoken answers`,
+  speaking: (n) => `${n} sentences`,
   games: (n) => `${n} games`,
   reviews: (n) => `${n} smart reviews`,
   perfect: (n) => `${n} perfect lessons`,

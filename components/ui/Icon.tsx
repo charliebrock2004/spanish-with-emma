@@ -222,6 +222,30 @@ const PATHS = {
       <path d="M18 4l3 3-3 3M18 14l3 3-3 3" />
     </>
   ),
+  bag: (
+    <>
+      <path d="M5 8h14l-1.2 11.1a2 2 0 0 1-2 1.9H8.2a2 2 0 0 1-2-1.9z" />
+      <path d="M9 10V7a3 3 0 0 1 6 0v3" />
+    </>
+  ),
+  scroll: (
+    <>
+      <path d="M7 4h11a2 2 0 0 1 2 2v1h-4" />
+      <path d="M16 7v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1h10" />
+      <path d="M7 4a2 2 0 0 0-2 2v11M9 9h4M9 13h4" />
+    </>
+  ),
+  pause: (
+    <>
+      <path d="M8.5 5.5v13M15.5 5.5v13" />
+    </>
+  ),
+  replay: (
+    <>
+      <path d="M4 12a8 8 0 1 0 2.4-5.7" />
+      <path d="M4 4v4.5h4.5" />
+    </>
+  ),
 } as const;
 
 export type IconName = keyof typeof PATHS;

@@ -219,7 +219,7 @@ function Moment({ event, onDone }: { event: MomentEvent; onDone: () => void }) {
       )}
       <div className="mt-auto flex w-full max-w-sm flex-col items-center pt-6">
         <div className="flex items-end gap-3">
-          <EmmaFullBody height={170} celebrating className="max-h-[24dvh] w-auto drop-shadow-xl" />
+          <EmmaFullBody height={240} celebrating className="max-h-[32dvh] w-auto drop-shadow-xl" />
           <p className="mb-8 max-w-[12rem] rounded-3xl rounded-bl-md bg-paper px-4 py-3 text-left text-[15px] leading-snug font-bold text-ink shadow-card">{line}</p>
         </div>
         {chestId ? (

@@ -8,6 +8,7 @@ import { useCapabilities } from '@/components/providers/AppProviders';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Card, Segmented, Slider, Toggle } from '@/components/ui/primitives';
+import { soundService } from '@/services/sound/SoundService';
 import { Sheet } from '@/components/ui/Sheet';
 import { useListener, useVoiceCapabilities, useVoiceStatus } from '@/components/voice/hooks';
 import { useNow } from '@/lib/hooks/useNow';
@@ -350,6 +351,12 @@ export function SettingsScreen() {
           </Row>
         )}
         <Toggle
+          label="Expressive voice"
+          description="Emma sounds brighter when she celebrates and softer when she corrects you. Off keeps her calm and even."
+          checked={settings.expressiveVoice}
+          onChange={(expressiveVoice) => updateSettings({ expressiveVoice })}
+        />
+        <Toggle
           label="Play audio automatically"
           description="Emma reads new words and questions aloud."
           checked={settings.autoplayAudio}
@@ -437,7 +444,24 @@ export function SettingsScreen() {
       </Section>
 
       <Section id="sound" title="Sound & display">
-        <Toggle label="Sound effects" description="Little chimes for right answers and rewards." checked={settings.soundEffects} onChange={(soundEffects) => updateSettings({ soundEffects })} />
+        <Toggle label="Sound effects" description="Little chimes for right answers, combos, coins and rewards." checked={settings.soundEffects} onChange={(soundEffects) => updateSettings({ soundEffects })} />
+        {settings.soundEffects && (
+          <div className="pb-2">
+            <Slider
+              label="Effects volume"
+              value={settings.soundVolume}
+              min={0.1}
+              max={1}
+              step={0.1}
+              onChange={(soundVolume) => {
+                updateSettings({ soundVolume });
+                soundService.setVolume(soundVolume);
+                soundService.play('coin');
+              }}
+              format={(v) => `${Math.round(v * 100)}%`}
+            />
+          </div>
+        )}
         <Toggle label="Music" description="A gentle Spanish guitar loop on the menus." checked={settings.music} onChange={(music) => updateSettings({ music })} />
         <Toggle label="Reduce motion" description="Fewer animations and no confetti." checked={settings.reduceMotion} onChange={(reduceMotion) => updateSettings({ reduceMotion })} />
       </Section>
@@ -521,7 +545,9 @@ export function SettingsScreen() {
           </li>
           <li className="flex justify-between gap-4">
             <span className="text-ink-soft">Natural cloud voices</span>
-            <span className={cn('font-bold', caps.cloudTts ? 'text-sage-dark' : 'text-ink-faint')}>{caps.cloudTts ? 'On' : 'Off — device voices'}</span>
+            <span className={cn('font-bold', caps.cloudTts ? 'text-sage-dark' : 'text-ink-faint')}>
+              {caps.cloudTts ? `On — ${caps.ttsProvider === 'elevenlabs' ? 'ElevenLabs' : caps.ttsProvider === 'openai' ? 'OpenAI' : 'server'}` : 'Off — device voices'}
+            </span>
           </li>
           <li className="flex justify-between gap-4">
             <span className="text-ink-soft">Server speech recognition</span>

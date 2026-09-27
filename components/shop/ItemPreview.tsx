@@ -1,7 +1,9 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element -- pre-optimised WebP crops with explicit srcset */
 import { EmmaAvatar } from '@/components/emma/EmmaAvatar';
-import { bubbleFor, SceneBackdrop } from '@/components/cosmetics/cosmetics';
+import { portraitSrc } from '@/components/emma/emma';
+import { bubbleFor, SceneBackdrop, sceneFor } from '@/components/cosmetics/cosmetics';
 import { Icon } from '@/components/ui/Icon';
 import type { Rarity, ShopItem } from '@/data/shop';
 import { cn } from '@/lib/utils';
@@ -15,8 +17,25 @@ export const RARITY: Record<Rarity, { label: string; chip: string; ring: string 
 
 function Inner({ item, size }: { item: ShopItem; size: number }) {
   switch (item.category) {
-    case 'outfit':
-      return <EmmaAvatar outfit={item.id} background="bg-cream" size={size} animated={false} decorative />;
+    case 'outfit': {
+      // Half-length, so the outfit itself is what you see.
+      const { src, srcSet } = portraitSrc('front', item.id);
+      return (
+        <div className="relative overflow-hidden rounded-2xl" style={{ width: size, height: size, background: sceneFor('bg-cream').disc }}>
+          <img
+            src={src}
+            srcSet={srcSet}
+            sizes={`${size}px`}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            className="absolute left-0 max-w-none select-none"
+            style={{ width: size, top: -size * 0.28 }}
+          />
+        </div>
+      );
+    }
     case 'background':
       return (
         <div className="relative overflow-hidden rounded-2xl shadow-[inset_0_0_0_1px_rgb(0_0_0/0.06)]" style={{ width: size, height: size }}>
@@ -28,8 +47,11 @@ function Inner({ item, size }: { item: ShopItem; size: number }) {
     case 'bubble': {
       const bubble = bubbleFor(item.id);
       return (
-        <div className="grid place-items-center" style={{ width: size, height: size }}>
-          <span className={cn('rounded-2xl rounded-bl-md px-2.5 py-1.5 text-[13px] font-extrabold shadow-card', bubble.className)} style={bubble.style}>
+        <div className="grid place-items-center overflow-hidden" style={{ width: size, height: size }}>
+          <span
+            className={cn('rounded-2xl rounded-bl-md px-2.5 py-1.5 text-[13px] font-extrabold whitespace-nowrap shadow-card', bubble.className)}
+            style={{ ...bubble.style, transform: size < 70 ? `scale(${size / 76})` : undefined }}
+          >
             <span lang="es" className="spanish">¡Hola!</span>
           </span>
         </div>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
 import { EmmaAvatar } from '@/components/emma/EmmaAvatar';
+import { Hud } from '@/components/game-ui/parts';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useGameStore } from '@/store/gameStore';
 import { cn } from '@/lib/utils';
@@ -16,7 +17,7 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { href: '/', label: 'Home', icon: 'home', match: (p) => p === '/' },
+  { href: '/', label: 'Home', icon: 'home', match: (p) => p === '/' || p.startsWith('/quests') || p.startsWith('/shop') },
   { href: '/learn', label: 'Learn', icon: 'map', match: (p) => p.startsWith('/learn') },
   { href: '/emma', label: 'Emma', icon: 'emma', match: (p) => p.startsWith('/emma') },
   { href: '/review', label: 'Review', icon: 'book', match: (p) => p.startsWith('/review') || p.startsWith('/play') },
@@ -78,6 +79,11 @@ function BottomNav({ pathname }: { pathname: string }) {
   );
 }
 
+const SIDE_EXTRA: NavItem[] = [
+  { href: '/quests', label: 'Quests', icon: 'scroll', match: (p) => p.startsWith('/quests') },
+  { href: '/shop', label: 'Shop', icon: 'bag', match: (p) => p.startsWith('/shop') },
+];
+
 function SideNav({ pathname }: { pathname: string }) {
   return (
     <nav aria-label="Main" className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-2 px-5 py-8 md:flex">
@@ -87,7 +93,7 @@ function SideNav({ pathname }: { pathname: string }) {
           Spanish <span className="text-terracotta italic">with</span> Emma
         </span>
       </Link>
-      {NAV.map((item) => {
+      {[...NAV.slice(0, 1).map((n) => ({ ...n, match: (p: string) => p === '/' })), ...NAV.slice(1), ...SIDE_EXTRA].map((item) => {
         const active = item.match(pathname);
         return (
           <Link
@@ -140,6 +146,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="paper flex min-h-dvh">
       <SideNav pathname={pathname} />
       <main id="main" className="min-w-0 flex-1 pb-28 md:pb-10">
+        <div className="sticky top-0 z-30 border-b border-sand/40 bg-cream/90 backdrop-blur-md safe-top">
+          <div className="mx-auto max-w-2xl px-4 py-2">{ready ? <Hud /> : <div className="h-11" aria-hidden />}</div>
+        </div>
         {ready ? children : <ScreenSkeleton />}
       </main>
       <BottomNav pathname={pathname} />
@@ -149,7 +158,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
   return (
-    <header className="flex items-end justify-between gap-4 px-5 pt-6 pb-2 safe-top md:pt-10">
+    <header className="flex items-end justify-between gap-4 px-5 pt-5 pb-2 md:pt-8">
       <div>
         <h1 className="font-display text-[32px] leading-tight font-semibold tracking-tight">{title}</h1>
         {subtitle && <p className="mt-1 text-ink-soft">{subtitle}</p>}

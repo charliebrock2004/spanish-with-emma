@@ -1,18 +1,49 @@
 import { describe, expect, it } from 'vitest';
 import { SCENARIOS, SCENARIOS_BY_ID } from '@/data/conversations/scenarios';
+import { SPECIAL_SCENES } from '@/data/conversations/specials';
+import { SHOP_ITEMS } from '@/data/shop';
 import { looksEnglish, respondGuided, startGuided } from '@/lib/conversation/guided';
 
 const meet = SCENARIOS_BY_ID.get('meet-emma')!;
 
 describe('guided conversations', () => {
   it('every scenario is well-formed', () => {
-    for (const s of SCENARIOS) {
+    for (const s of [...SCENARIOS, ...SPECIAL_SCENES]) {
       expect(s.nodes[s.start], `${s.id} start`).toBeTruthy();
       for (const [id, node] of Object.entries(s.nodes)) {
         for (const a of node.answers ?? []) expect(s.nodes[a.next], `${s.id}.${id} → ${a.next}`).toBeTruthy();
         if (node.next) expect(s.nodes[node.next], `${s.id}.${id} next`).toBeTruthy();
         if (node.answers?.length) expect(node.hint, `${s.id}.${id} needs a hint`).toBeTruthy();
       }
+    }
+  });
+
+  it('understands every hint it offers (so a stuck player can always use it)', () => {
+    for (const s of [...SCENARIOS, ...SPECIAL_SCENES]) {
+      for (const [id, node] of Object.entries(s.nodes)) {
+        if (!node.answers?.length || !node.hint) continue;
+        const state = { node: id, slots: { pname: 'Charlie', ...(s.defaults ?? {}) }, misses: 0, done: false };
+        const hint = node.hint.spanish.replace(/\{name\}/g, 'Charlie');
+        const turn = respondGuided(s, state, [hint], 'Charlie');
+        expect(turn.understood, `${s.id}.${id}: "${hint}"`).toBe(true);
+      }
+    }
+  });
+
+  it('has a shop item for every special scene, and a scene for every shop scene', () => {
+    const shopScenes = SHOP_ITEMS.filter((i) => i.category === 'scene').map((i) => i.id).sort();
+    expect(SPECIAL_SCENES.map((s) => s.id).sort()).toEqual(shopScenes);
+  });
+
+  it('plays a special scene from start to finish with its hints', () => {
+    for (const scene of SPECIAL_SCENES) {
+      let { state } = startGuided(scene, 'Charlie');
+      for (let i = 0; i < 20 && !state.done; i++) {
+        const hint = scene.nodes[state.node].hint;
+        if (!hint) break;
+        state = respondGuided(scene, state, [hint.spanish], 'Charlie').state;
+      }
+      expect(state.done || scene.nodes[state.node].end, scene.id).toBeTruthy();
     }
   });
 

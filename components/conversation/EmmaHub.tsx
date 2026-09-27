@@ -9,6 +9,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Card, Chip } from '@/components/ui/primitives';
 import { Sheet } from '@/components/ui/Sheet';
 import { CHAT_TOPICS } from '@/data/conversations/topics';
+import { ITEMS_BY_ID } from '@/data/shop';
 import { curriculumLevel, useGameStore } from '@/store/gameStore';
 import type { LevelId, LevelMeta } from '@/types/curriculum';
 import type { ConversationRecord } from '@/types/progress';
@@ -90,7 +91,54 @@ function Transcript({ record, name }: { record: ConversationRecord; name: string
   );
 }
 
-export function EmmaHub({ scenarios, levels }: { scenarios: ScenarioCard[]; levels: LevelMeta[] }) {
+function SpecialScenes({ specials }: { specials: ScenarioCard[] }) {
+  const owned = useGameStore((s) => s.inventory.owned);
+  return (
+    <section className="mt-7 animate-enter [animation-delay:90ms]" aria-labelledby="special">
+      <div className="flex items-baseline justify-between px-1">
+        <h2 id="special" className="font-display text-xl font-semibold">
+          Special scenes
+        </h2>
+        <Link href="/shop?tab=scenes" className="inline-flex min-h-11 items-center gap-1 text-sm font-extrabold text-terracotta">
+          Shop <Icon name="chevronRight" size={16} />
+        </Link>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-3">
+        {specials.map((s) => {
+          const item = ITEMS_BY_ID.get(s.id);
+          const has = Boolean(owned[s.id]);
+          return (
+            <Link
+              key={s.id}
+              href={has ? `/emma/${s.id}` : '/shop?tab=scenes'}
+              className={cn('relative overflow-hidden rounded-2xl p-3.5 shadow-card transition-transform active:scale-[0.97]', has ? 'bg-paper' : 'bg-cream-deep')}
+              style={has && item?.swatch ? { background: `linear-gradient(145deg, ${item.swatch[1]}33, var(--color-paper) 55%)` } : undefined}
+            >
+              <span className={cn('text-2xl', !has && 'grayscale')} aria-hidden>
+                {s.emoji}
+              </span>
+              <span className="mt-2 block font-extrabold leading-tight">{s.title}</span>
+              <span className="mt-0.5 block text-[13px] leading-snug text-ink-soft">{s.description}</span>
+              <span className="mt-2 inline-flex items-center gap-1 text-xs font-extrabold text-ink-soft">
+                {has ? (
+                  <>
+                    <Icon name="mic" size={13} /> Play
+                  </>
+                ) : (
+                  <>
+                    <Icon name="lock" size={13} /> {item?.price ? `${item.price} coins in the shop` : 'In the shop'}
+                  </>
+                )}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+export function EmmaHub({ scenarios, specials = [], levels }: { scenarios: ScenarioCard[]; specials?: ScenarioCard[]; levels: LevelMeta[] }) {
   const caps = useCapabilities();
   const name = useGameStore((s) => s.profile.name);
   const level = useGameStore(curriculumLevel);
@@ -187,6 +235,8 @@ export function EmmaHub({ scenarios, levels }: { scenarios: ScenarioCard[]; leve
           </Card>
         )}
       </section>
+
+      {specials.length > 0 && <SpecialScenes specials={specials} />}
 
       {/* Guided */}
       <section className="mt-7 animate-enter [animation-delay:120ms]" aria-labelledby="guided">

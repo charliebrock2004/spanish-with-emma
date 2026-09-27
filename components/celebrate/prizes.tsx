@@ -1,5 +1,6 @@
 import { ItemPreview, RARITY } from '@/components/shop/ItemPreview';
 import { CoinIcon, XpIcon } from '@/components/game-ui/icons';
+import { Icon } from '@/components/ui/Icon';
 import { ITEMS_BY_ID } from '@/data/shop';
 import type { ChestPrize, ResolvedPrize } from '@/lib/game/chests';
 import { cn, formatNumber } from '@/lib/utils';
@@ -33,13 +34,13 @@ export function PrizeCard({ prize, className }: { prize: ResolvedPrize; classNam
       tone = 'bg-sun-light';
       break;
     case 'boost':
-      icon = <span className="text-4xl leading-none">⚡</span>;
+      icon = <Icon name="bolt" size={40} filled strokeWidth={1.4} className="text-sun-dark" />;
       title = `${prize.minutes} min double XP`;
       detail = 'Starts now — go play!';
       tone = 'bg-sun-light';
       break;
     case 'freeze':
-      icon = <span className="text-4xl leading-none">❄️</span>;
+      icon = <Icon name="snowflake" size={38} strokeWidth={2.2} className="text-sky" />;
       title = 'Streak freeze';
       detail = 'Protects your streak for a day';
       tone = 'bg-sky-light';

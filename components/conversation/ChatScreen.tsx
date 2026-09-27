@@ -16,6 +16,7 @@ import { ChatRequestError, fetchEmmaReply } from '@/lib/conversation/aiClient';
 import { currentHint, respondGuided, startGuided, type GuidedState } from '@/lib/conversation/guided';
 import type { GuidedScenario, Line } from '@/lib/conversation/types';
 import { conversationReward } from '@/lib/game/economy';
+import { ITEMS_BY_ID } from '@/data/shop';
 import { RewardChips } from '@/components/game-ui/parts';
 import { useNow } from '@/lib/hooks/useNow';
 import { personalise, sleep, uid } from '@/lib/utils';
@@ -49,7 +50,32 @@ export function ChatScreen({ scenario, topic }: { scenario?: GuidedScenario; top
 
   if (!scenario && !caps.aiChat) return <AiChatUnavailable />;
   if (!hydrated || !onboarded) return <ChatSkeleton />;
+  if (scenario && ITEMS_BY_ID.get(scenario.id)?.category === 'scene') return <SpecialScene scenario={scenario} />;
   return <Conversation scenario={scenario} topic={topic} />;
+}
+
+/** Special scenes come from the shop: play if owned, otherwise show where to get it. */
+function SpecialScene({ scenario }: { scenario: GuidedScenario }) {
+  const owned = useGameStore((s) => Boolean(s.inventory.owned[scenario.id]));
+  const item = ITEMS_BY_ID.get(scenario.id);
+  if (owned) return <Conversation scenario={scenario} />;
+  return (
+    <div className="paper flex min-h-dvh flex-col items-center justify-center px-6 text-center safe-top safe-bottom">
+      <span className="grid h-24 w-24 place-items-center rounded-[2rem] bg-sun-light text-5xl shadow-card" aria-hidden>
+        {scenario.emoji}
+      </span>
+      <h1 className="mt-4 font-display text-2xl font-semibold">{scenario.title}</h1>
+      <p className="mt-2 max-w-sm text-ink-soft">
+        {scenario.description} It&rsquo;s a special scene{item?.price ? ` — get it in the shop for ${item.price} coins` : ''}.
+      </p>
+      <ButtonLink href="/shop?tab=scenes" size="lg" className="mt-6">
+        Visit the shop
+      </ButtonLink>
+      <ButtonLink href="/emma" variant="ghost" size="md" className="mt-2">
+        Back to Talk to Emma
+      </ButtonLink>
+    </div>
+  );
 }
 
 function ChatSkeleton() {

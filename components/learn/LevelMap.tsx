@@ -3,11 +3,14 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EmmaAvatar } from '@/components/emma/EmmaAvatar';
+import { StarRating } from '@/components/game-ui/parts';
 import { PageHeader } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Chip, ProgressBar } from '@/components/ui/primitives';
 import { Sheet } from '@/components/ui/Sheet';
+import { REGIONS } from '@/data/regions';
+import { lessonStars } from '@/lib/game/economy';
 import { computeJourney, type JourneyLesson, type LevelProgress } from '@/lib/progress/journey';
 import { useGameStore } from '@/store/gameStore';
 import type { LessonSummary, LevelId, LevelMeta } from '@/types/curriculum';
@@ -16,44 +19,54 @@ import { cn } from '@/lib/utils';
 const ROW = 118;
 const PATH_WIDTH = 300;
 
-const LEVEL_THEME: Record<LevelId, { band: string; ink: string; node: string }> = {
-  1: { band: 'from-sage-light to-cream', ink: 'text-sage-dark', node: '#4f8a5b' },
-  2: { band: 'from-sun-light to-cream', ink: 'text-honey-dark', node: '#c9861a' },
-  3: { band: 'from-[#dcefe6] to-cream', ink: 'text-[#2f6b58]', node: '#2f8a6f' },
-  4: { band: 'from-sky-light to-cream', ink: 'text-[#3d6a8c]', node: '#4d86b3' },
-  5: { band: 'from-terracotta-light to-cream', ink: 'text-terracotta-dark', node: '#c65d3b' },
-  6: { band: 'from-[#f3d3cc] to-cream', ink: 'text-brick', node: '#8a2f22' },
+const LEVEL_INK: Record<LevelId, string> = {
+  1: 'text-sage-dark',
+  2: 'text-honey-dark',
+  3: 'text-[#2f6b58]',
+  4: 'text-[#3d6a8c]',
+  5: 'text-terracotta-dark',
+  6: 'text-brick',
 };
 
 const offsetFor = (i: number) => Math.sin(i * 0.95) * 78;
 
-function LevelHeader({ meta, progress }: { meta: LevelMeta; progress: LevelProgress }) {
-  const theme = LEVEL_THEME[meta.id];
+function RegionBanner({ meta, progress, stars }: { meta: LevelMeta; progress: LevelProgress; stars: number }) {
+  const region = REGIONS[meta.id];
+  const previous = meta.id > 1 ? REGIONS[(meta.id - 1) as LevelId] : null;
   return (
-    <div className={cn('relative overflow-hidden rounded-[var(--radius-card)] bg-gradient-to-br px-5 py-5 shadow-card', theme.band)}>
-      <div className="flex items-start gap-4">
+    <div
+      className={cn('relative overflow-hidden rounded-[var(--radius-card)] px-5 py-5 shadow-card', !progress.unlocked && 'grayscale-[0.7]')}
+      style={{ background: `linear-gradient(135deg, ${region.sky[0]}, ${region.sky[1]})` }}
+    >
+      <span className="pointer-events-none absolute -top-3 -right-2 text-[88px] leading-none opacity-20 select-none" aria-hidden>
+        {region.landmark}
+      </span>
+      <div className="relative flex items-start gap-4">
         <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-paper text-3xl shadow-card" aria-hidden>
-          {meta.emoji}
+          {progress.unlocked ? region.landmark : '🔒'}
         </span>
         <div className="min-w-0 flex-1">
-          <p className={cn('text-xs font-extrabold tracking-[0.16em] uppercase', theme.ink)}>
-            Level {meta.id} · {meta.subtitle}
+          <p className={cn('text-xs font-extrabold tracking-[0.16em] uppercase', LEVEL_INK[meta.id])}>
+            {region.name} · Level {meta.id}
           </p>
           <h2 className="font-display text-2xl leading-tight font-semibold">{meta.title}</h2>
-          <p className="mt-1 text-sm text-ink-soft">{meta.description}</p>
+          <p className="mt-1 text-sm text-ink-soft">{region.blurb}</p>
         </div>
         <Chip className="bg-paper/80">{meta.cefr}</Chip>
       </div>
       {progress.unlocked ? (
-        <div className="mt-4 flex items-center gap-3">
-          <ProgressBar value={progress.done} max={progress.total} label={`Level ${meta.id} progress`} size="sm" tone="warm" />
+        <div className="relative mt-4 flex items-center gap-3">
+          <ProgressBar value={progress.done} max={progress.total} label={`${region.name} progress`} size="sm" tone="warm" />
           <span className="shrink-0 text-sm font-extrabold tabular-nums text-ink-soft">
             {progress.done}/{progress.total}
           </span>
+          <span className="inline-flex shrink-0 items-center gap-0.5 text-sm font-extrabold text-honey-dark" aria-label={`${stars} of ${progress.total * 3} stars`}>
+            ⭐ {stars}/{progress.total * 3}
+          </span>
         </div>
       ) : (
-        <p className="mt-4 flex items-center gap-2 text-sm font-bold text-ink-soft">
-          <Icon name="lock" size={16} /> Finish Level {meta.id - 1} to unlock
+        <p className="relative mt-4 flex items-center gap-2 text-sm font-bold text-ink-soft">
+          <Icon name="lock" size={16} /> Finish {previous?.name ?? `Level ${meta.id - 1}`} to travel here
         </p>
       )}
     </div>
@@ -65,11 +78,13 @@ function LessonNode({
   x,
   onOpen,
   colour,
+  stars,
 }: {
   lesson: JourneyLesson;
   x: number;
   onOpen: () => void;
   colour: string;
+  stars: number;
 }) {
   const size = lesson.isMilestone ? 80 : 68;
   const { status } = lesson;
@@ -109,9 +124,11 @@ function LessonNode({
           </span>
         )}
       </button>
+      {status === 'completed' && <StarRating stars={stars} size={14} className="mt-1.5" />}
       <span
         className={cn(
-          'mt-2 max-w-[9.5rem] rounded-full bg-cream/90 px-2 py-0.5 text-center text-[13px] leading-tight font-extrabold',
+          'max-w-[9.5rem] rounded-full bg-cream/90 px-2 py-0.5 text-center text-[13px] leading-tight font-extrabold',
+          status === 'completed' ? 'mt-0.5' : 'mt-2',
           status === 'locked' ? 'text-ink-faint' : 'text-ink',
         )}
       >
@@ -122,15 +139,15 @@ function LessonNode({
           className="absolute top-2 flex items-center gap-1.5"
           style={{ [x > 0 ? 'right' : 'left']: `calc(50% + ${size / 2 + 10}px)` }}
         >
-          <EmmaAvatar size={40} animated decorative />
-          <span className="animate-pop rounded-2xl bg-ink px-3 py-1.5 text-xs font-extrabold whitespace-nowrap text-cream">¡Vamos!</span>
+          <EmmaAvatar size={40} state="excited" animated decorative />
+          <span className="animate-pop rounded-2xl bg-ink px-3 py-1.5 text-xs font-extrabold whitespace-nowrap text-cream">You are here · ¡Vamos!</span>
         </div>
       )}
     </div>
   );
 }
 
-function LevelPath({ lessons, colour, onOpen }: { lessons: JourneyLesson[]; colour: string; onOpen: (l: JourneyLesson) => void }) {
+function LevelPath({ lessons, colour, onOpen, starsFor }: { lessons: JourneyLesson[]; colour: string; onOpen: (l: JourneyLesson) => void; starsFor: (id: string) => number }) {
   const height = lessons.length * ROW;
   const points = lessons.map((_, i) => ({ x: PATH_WIDTH / 2 + offsetFor(i), y: i * ROW + 36 }));
   const d = points.reduce((acc, p, i) => {
@@ -164,7 +181,7 @@ function LevelPath({ lessons, colour, onOpen }: { lessons: JourneyLesson[]; colo
       </svg>
       {lessons.map((lesson, i) => (
         <div key={lesson.id} className="absolute inset-x-0" style={{ top: i * ROW, height: ROW }}>
-          <LessonNode lesson={lesson} x={offsetFor(i)} colour={colour} onOpen={() => onOpen(lesson)} />
+          <LessonNode lesson={lesson} x={offsetFor(i)} colour={colour} stars={starsFor(lesson.id)} onOpen={() => onOpen(lesson)} />
         </div>
       ))}
     </div>
@@ -188,12 +205,17 @@ export function LevelMap({ lessons, levels }: { lessons: LessonSummary[]; levels
 
   const totalDone = journey.lessons.filter((l) => l.status === 'completed').length;
   const record = open ? completed[open.id] : undefined;
+  const starsFor = (id: string) => {
+    const r = completed[id];
+    return r ? (r.stars ?? lessonStars(r.bestAccuracy, r.perfect)) : 0;
+  };
+  const totalStars = journey.lessons.reduce((n, l) => n + starsFor(l.id), 0);
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4">
       <PageHeader
         title="Your journey"
-        subtitle={`${totalDone} of ${journey.lessons.length} lessons · from ¡hola! to fluent conversation`}
+        subtitle={`${totalDone} of ${journey.lessons.length} lessons · ⭐ ${totalStars} of ${journey.lessons.length * 3} · Madrid to Santiago`}
       />
       <div className="mt-4 space-y-10 pb-8">
         {levels.map((meta) => {
@@ -204,8 +226,8 @@ export function LevelMap({ lessons, levels }: { lessons: LessonSummary[]; levels
               <h2 id={`level-${meta.id}`} className="sr-only">
                 Level {meta.id}: {meta.title}
               </h2>
-              <LevelHeader meta={meta} progress={progress} />
-              {levelLessons.length > 0 && <LevelPath lessons={levelLessons} colour={LEVEL_THEME[meta.id].node} onOpen={setOpen} />}
+              <RegionBanner meta={meta} progress={progress} stars={levelLessons.reduce((n, l) => n + starsFor(l.id), 0)} />
+              {levelLessons.length > 0 && <LevelPath lessons={levelLessons} colour={REGIONS[meta.id].colour} onOpen={setOpen} starsFor={starsFor} />}
             </section>
           );
         })}
@@ -231,9 +253,14 @@ export function LevelMap({ lessons, levels }: { lessons: LessonSummary[]; levels
               <Chip>
                 <Icon name="clock" size={14} /> {open.estimatedMinutes} min
               </Chip>
-              <Chip>⭐ up to {open.xpReward} XP</Chip>
+              <Chip>✨ {open.xpReward}+ XP</Chip>
               {open.vocabCount > 0 && <Chip>📚 {open.vocabCount} new words</Chip>}
               {record && <Chip className="bg-sage-light text-sage-dark">✓ Best {Math.round(record.bestAccuracy * 100)}%</Chip>}
+              {record && (
+                <Chip className="bg-sun-light">
+                  <StarRating stars={starsFor(open.id)} size={12} />
+                </Chip>
+              )}
             </div>
             <div className="mt-6">
               {open.status === 'locked' ? (
@@ -242,9 +269,14 @@ export function LevelMap({ lessons, levels }: { lessons: LessonSummary[]; levels
                   Finish the lessons before this one to unlock it.
                 </p>
               ) : (
-                <Button size="lg" block onClick={() => router.push(`/lesson/${open.id}`)}>
-                  {open.status === 'completed' ? 'Practise again' : 'Start lesson'}
-                </Button>
+                <>
+                  <Button size="lg" block onClick={() => router.push(`/lesson/${open.id}`)}>
+                    {open.status === 'completed' ? (starsFor(open.id) < 3 ? 'Play again for ⭐⭐⭐' : 'Practise again') : 'Start lesson'}
+                  </Button>
+                  {open.status === 'completed' && starsFor(open.id) < 3 && (
+                    <p className="mt-2 text-center text-xs font-bold text-ink-faint">Three stars = no mistakes at all. Perfect runs earn a bonus.</p>
+                  )}
+                </>
               )}
             </div>
           </div>
