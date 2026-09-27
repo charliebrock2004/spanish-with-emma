@@ -36,8 +36,13 @@ export function ReplyComposer({
   disabled?: boolean;
   placeholder?: string;
 }) {
-  const initial: ReplyMode = defaultMode === 'voice' && !canListen ? (options?.length ? 'tap' : 'type') : defaultMode;
-  const [mode, setMode] = useState<ReplyMode>(initial);
+  // Only the player's explicit choice is state; otherwise follow what the device can do
+  // (microphone support is only known after mount).
+  const [chosen, setMode] = useState<ReplyMode | null>(null);
+  const fallback: ReplyMode = options?.length ? 'tap' : 'type';
+  let mode: ReplyMode = chosen ?? defaultMode;
+  if (mode === 'voice' && !canListen) mode = fallback;
+  if (mode === 'tap' && !options?.length) mode = 'type';
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const listener = useListener('es-ES');

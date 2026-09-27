@@ -13,6 +13,7 @@ import { soundService } from '@/services/sound/SoundService';
 import { voiceService } from '@/services/voice/VoiceService';
 import { useGameStore } from '@/store/gameStore';
 import { useNow } from '@/lib/hooks/useNow';
+import { useVoiceCapabilities } from '@/components/voice/hooks';
 import type { Exercise, LevelId, MistakeType } from '@/types/curriculum';
 import { FeedbackPanel, type Feedback } from './FeedbackPanel';
 import { LessonHeader } from './LessonHeader';
@@ -156,7 +157,7 @@ export function ExerciseSession({
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [confirmExit, setConfirmExit] = useState(false);
   const [outOfHearts, setOutOfHearts] = useState(false);
-  const [caps, setCaps] = useState({ canListen: false, canSpeak: true });
+  const caps = useVoiceCapabilities();
 
   const stats = useRef({
     started: 0,
@@ -175,14 +176,6 @@ export function ExerciseSession({
     stats.current.started = Date.now();
   }, []);
 
-  useEffect(() => {
-    // Wait a tick so the voice service has picked up the player's settings.
-    const t = window.setTimeout(() => {
-      const c = voiceService.capabilities();
-      setCaps({ canListen: c.canListen, canSpeak: c.canSpeak });
-    }, 0);
-    return () => window.clearTimeout(t);
-  }, [settings.sttEngine, settings.ttsEngine]);
 
   useActivityTimer(!outOfHearts && index < queue.length);
 

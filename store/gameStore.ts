@@ -115,6 +115,8 @@ interface GameActions {
     conversationTurns?: number;
   }): { streak: StreakUpdate; achievements: string[] };
   resolveMistakes(ids: string[]): void;
+  /** Adds a mistake from outside a lesson (e.g. a correction in conversation). */
+  logMistake(mistake: Omit<MistakeRecord, 'id' | 'at' | 'resolved'>): void;
   saveConversation(record: ConversationRecord): void;
   shiftEvent(): void;
   setAnnouncedShift(shift: -1 | 0 | 1): void;
@@ -524,6 +526,12 @@ export const useGameStore = create<GameStore>()(
       resolveMistakes(ids) {
         const set_ = new Set(ids);
         set((s) => ({ mistakes: s.mistakes.map((m) => (set_.has(m.id) ? { ...m, resolved: true } : m)) }));
+      },
+
+      logMistake(mistake) {
+        set((s) => ({
+          mistakes: [{ ...mistake, id: uid('m'), at: Date.now(), resolved: false }, ...s.mistakes].slice(0, 100),
+        }));
       },
 
       saveConversation(record) {

@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { voiceService, type SayOptions, type VoiceStatus } from '@/services/voice/VoiceService';
+import { voiceService, type SayOptions, type VoiceCapabilities, type VoiceStatus } from '@/services/voice/VoiceService';
+import { useGameStore } from '@/store/gameStore';
 import { toVoiceError } from '@/services/voice/errors';
 import type { ListenSession, RecognitionLang, RecognitionResult, VoiceError } from '@/services/voice/types';
 
@@ -10,6 +11,29 @@ const SERVER_STATUS: VoiceStatus = { speaking: false, listening: false };
 /** Whether Emma is currently speaking or listening (drives her animation). */
 export function useVoiceStatus(): VoiceStatus {
   return useSyncExternalStore(voiceService.subscribe, voiceService.getStatus, () => SERVER_STATUS);
+}
+
+const UNKNOWN_CAPS: VoiceCapabilities & { ready: boolean } = {
+  canSpeak: true,
+  speakProvider: null,
+  canListen: false,
+  listenProvider: null,
+  ready: false,
+};
+
+/**
+ * What this device can do right now. Reads after a tick so the voice service
+ * has picked up the player's settings (the settings bridge is a parent effect).
+ */
+export function useVoiceCapabilities(): VoiceCapabilities & { ready: boolean } {
+  const sttEngine = useGameStore((s) => s.settings.sttEngine);
+  const ttsEngine = useGameStore((s) => s.settings.ttsEngine);
+  const [caps, setCaps] = useState(UNKNOWN_CAPS);
+  useEffect(() => {
+    const t = window.setTimeout(() => setCaps({ ...voiceService.capabilities(), ready: true }), 0);
+    return () => window.clearTimeout(t);
+  }, [sttEngine, ttsEngine]);
+  return caps;
 }
 
 /** Speak helper that also tracks whether *this* line is the one playing. */
