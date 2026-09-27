@@ -36,8 +36,8 @@ export default defineLesson({
     word('lo-siento', 'lo siento', "I'm sorry", 'basics', { pron: 'lo SYEN-to', enAlt: ['sorry'] }),
   ],
   exercises: [
-    intro('si', { lines: ['*Sí* means *yes*…'] }),
-    intro('no', { lines: ['…and *no* means *no*. Easy!'] }),
+    intro('si', { lines: ['*Sí* means yes…'] }),
+    intro('no', { lines: ['…and *no* means no. Easy!'] }),
     meaning('si'),
     intro('gracias', { lines: ['*Gracias* — thank you.'] }),
     tip(

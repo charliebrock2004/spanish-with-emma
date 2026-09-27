@@ -102,6 +102,8 @@ interface GameActions {
   updateSettings(patch: Partial<Settings>): void;
   markWordsSeen(words: VocabLike[]): void;
   recordAnswer(input: AnswerInput): string[];
+  /** Spaced-review updates only (multi-part exercises report each word separately). */
+  recordVocab(results: Array<{ word: VocabLike; correct: boolean }>): void;
   recordSpeakingAttempt(): void;
   addXp(amount: number): void;
   addLearningTime(seconds: number): void;
@@ -122,6 +124,9 @@ interface GameActions {
 interface Transient {
   hydrated: boolean;
   events: UiEvent[];
+  /** Hold toasts while a lesson is in progress (shown on the results screen). */
+  toastsPaused: boolean;
+  setToastsPaused(paused: boolean): void;
 }
 
 export type GameStore = GameData & GameActions & Transient;
@@ -264,6 +269,10 @@ export const useGameStore = create<GameStore>()(
       ...initialData(),
       hydrated: false,
       events: [],
+      toastsPaused: false,
+      setToastsPaused(paused) {
+        set({ toastsPaused: paused });
+      },
 
       completeOnboarding(name, experience) {
         set((s) => ({
@@ -345,6 +354,19 @@ export const useGameStore = create<GameStore>()(
         const { achievements, events, unlocked } = withAchievements(next, s.events);
         set({ vocab, stats, mistakes, xp, adaptive: next.adaptive, activity: next.activity, achievements, events });
         return unlocked;
+      },
+
+      recordVocab(results) {
+        if (results.length === 0) return;
+        const now = Date.now();
+        const today = localDateKey();
+        set((s) => {
+          const vocab = { ...s.vocab };
+          for (const { word, correct } of results) {
+            vocab[word.id] = recordVocabAnswer(vocab[word.id] ?? newVocabProgress(word), correct, now, today);
+          }
+          return { vocab };
+        });
       },
 
       recordSpeakingAttempt() {

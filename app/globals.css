@@ -1,0 +1,321 @@
+@import 'tailwindcss';
+
+/*
+ * Spanish with Emma — design tokens.
+ * Warm cream paper, terracotta, soft yellow sunshine and charcoal ink.
+ * The cream matches the background of Emma's illustrations so she sits
+ * naturally on every screen.
+ */
+@theme {
+  --color-cream: #fbf3e8;
+  --color-cream-deep: #f4e7d5;
+  --color-paper: #fffcf7;
+  --color-sand: #eadbc6;
+  --color-sand-dark: #d9c5aa;
+
+  --color-terracotta: #c65d3b;
+  --color-terracotta-dark: #a4452a;
+  --color-terracotta-light: #f7e0d5;
+  --color-brick: #8a2f22;
+
+  --color-sun: #f2c14e;
+  --color-sun-dark: #c9962a;
+  --color-sun-light: #fcefc7;
+
+  --color-ink: #2a2320;
+  --color-ink-soft: #6b5e57;
+  --color-ink-faint: #a1938a;
+
+  --color-sage: #4f8a5b;
+  --color-sage-dark: #3b6b45;
+  --color-sage-light: #e2efdc;
+
+  --color-honey: #c9861a;
+  --color-honey-dark: #8f5d0f;
+  --color-honey-light: #fdf0d8;
+
+  --color-sky: #6f9fc4;
+  --color-sky-light: #e3eef6;
+
+  --font-sans: var(--font-nunito), ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+
+  --radius-card: 1.5rem;
+  --radius-button: 1.125rem;
+
+  --shadow-card: 0 1px 2px rgb(92 60 40 / 0.05), 0 10px 28px -14px rgb(92 60 40 / 0.22);
+  --shadow-lift: 0 2px 4px rgb(92 60 40 / 0.06), 0 18px 40px -18px rgb(92 60 40 / 0.35);
+  --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 0.6);
+
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-enter: enter 420ms var(--ease-out-soft) both;
+  --animate-enter-slow: enter 700ms var(--ease-out-soft) both;
+  --animate-pop: pop 380ms var(--ease-spring) both;
+  --animate-shake: shake 420ms ease-in-out both;
+  --animate-float: float 5s ease-in-out infinite;
+  --animate-talk: talk 520ms ease-in-out infinite;
+  --animate-tilt: tilt 1.4s ease-in-out infinite;
+  --animate-bounce-soft: bounce-soft 900ms var(--ease-spring) both;
+  --animate-pulse-ring: pulse-ring 1.6s ease-out infinite;
+  --animate-sheet: sheet 360ms var(--ease-out-soft) both;
+  --animate-fade: fade 300ms ease-out both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-spin-slow: spin 1.2s linear infinite;
+  --animate-glow: glow 2.4s ease-in-out infinite;
+
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes pop {
+    0% {
+      transform: scale(0.8);
+      opacity: 0;
+    }
+    60% {
+      transform: scale(1.06);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  @keyframes shake {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    20% {
+      transform: translateX(-7px);
+    }
+    40% {
+      transform: translateX(6px);
+    }
+    60% {
+      transform: translateX(-4px);
+    }
+    80% {
+      transform: translateX(2px);
+    }
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+  @keyframes talk {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-2px) rotate(-1deg);
+    }
+  }
+  @keyframes tilt {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    50% {
+      transform: rotate(-4deg);
+    }
+  }
+  @keyframes bounce-soft {
+    0% {
+      transform: translateY(0) scale(1);
+    }
+    30% {
+      transform: translateY(-14px) scale(1.03);
+    }
+    60% {
+      transform: translateY(0) scale(0.99);
+    }
+    100% {
+      transform: translateY(0) scale(1);
+    }
+  }
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(0.9);
+      opacity: 0.55;
+    }
+    100% {
+      transform: scale(1.7);
+      opacity: 0;
+    }
+  }
+  @keyframes sheet {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes shimmer {
+    from {
+      background-position: -200% 0;
+    }
+    to {
+      background-position: 200% 0;
+    }
+  }
+  @keyframes glow {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgb(198 93 59 / 0.35);
+    }
+    50% {
+      box-shadow: 0 0 0 10px rgb(198 93 59 / 0);
+    }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    background: var(--color-cream);
+  }
+
+  body {
+    background: var(--color-cream);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01' on;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 100dvh;
+  }
+
+  button,
+  [role='button'] {
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  button:disabled {
+    cursor: default;
+  }
+
+  /* 16px+ inputs stop iOS Safari zooming in on focus. */
+  input,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-terracotta);
+    outline-offset: 3px;
+    border-radius: 0.75rem;
+  }
+
+  ::selection {
+    background: var(--color-sun-light);
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@layer components {
+  .font-display {
+    font-variation-settings: 'SOFT' 100, 'WONK' 0;
+  }
+
+  /* Paper grain — very subtle, keeps big cream areas from feeling flat. */
+  .paper {
+    background-image:
+      radial-gradient(circle at 20% 0%, rgb(242 193 78 / 0.1), transparent 45%),
+      radial-gradient(circle at 100% 30%, rgb(198 93 59 / 0.07), transparent 40%);
+  }
+
+  .spanish {
+    font-family: var(--font-display);
+    font-variation-settings: 'SOFT' 100, 'WONK' 1;
+    color: var(--color-brick);
+    font-weight: 600;
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--color-cream-deep) 25%, var(--color-paper) 50%, var(--color-cream-deep) 75%);
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
+  }
+
+  .safe-top {
+    padding-top: max(env(safe-area-inset-top), 0.5rem);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Used from inline styles (not through a utility), so it lives outside @theme. */
+@keyframes talk-bar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* Respect the system setting and the in-app "Reduce motion" switch. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}

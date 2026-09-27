@@ -54,7 +54,7 @@ export default defineLesson({
       ],
     ),
     speak('Me llamo {name}', 'My name is {name}', { prompt: 'Now you — say *me llamo* and your name.' }),
-    intro('soy', { lines: ['Even shorter: *soy* means *I am*.', '*Soy Emma.*'] }),
+    intro('soy', { lines: ['Even shorter: *soy* means "I am".', '*Soy Emma.*'] }),
     translate('I am {name}', ['Soy {name}', 'Yo soy {name}']),
     intro('como-te-llamas', { lines: ["To ask someone's name: *¿cómo te llamas?*"] }),
     listen('¿Cómo te llamas?', "What's your name?"),

@@ -38,7 +38,7 @@ export default defineLesson({
     word('hasta-luego', 'hasta luego', 'see you later', 'greetings', { pron: 'AS-ta LWEH-go', enAlt: ['bye'] }),
   ],
   exercises: [
-    intro('hola', { lines: ['*¡Hola!*', 'That means *hello*.'] }),
+    intro('hola', { lines: ['*¡Hola!*', 'That means hello.'] }),
     speak('hola', undefined, {
       prompt: 'Your turn — say *hola*.',
       success: "¡Perfecto! That's your first Spanish word.",
@@ -48,7 +48,7 @@ export default defineLesson({
       { spanish: 'hola', english: 'hello', pronunciation: 'OH-la' },
       { spanish: 'hasta luego', english: 'see you later', pronunciation: 'AS-ta LWEH-go' },
     ]),
-    intro('adios', { lines: ['And when you leave: *adiós*.', 'That means *goodbye*.'] }),
+    intro('adios', { lines: ['And when you leave: *adiós*.', 'That means goodbye.'] }),
     recall('adios'),
     listen('adios'),
     intro('buenos-dias', { lines: ['In the morning we say *buenos días*.'] }),
