@@ -36,7 +36,7 @@ export default defineLesson({
   exercises: [
     tip(
       'The subjunctive',
-      'When you *want, hope or wish* for something that isn’t real yet, the next verb goes into the subjunctive. Swap the vowel: -ar verbs take *e* (*hable*), -er/-ir verbs take *a* (*coma, viva*). Key irregulars: *sea, vaya, tenga, haga, esté, pueda*.',
+      'When you want, hope or wish for something that isn’t real yet, the next verb goes into the subjunctive. Swap the vowel: -ar verbs take *e* (*hable*), -er/-ir verbs take *a* (*coma, viva*). Key irregulars: *sea, vaya, tenga, haga, esté, pueda*.',
       [
         { spanish: 'Espero que estés bien.', english: 'I hope you’re well.' },
         { spanish: 'Quiero que vengas a la fiesta.', english: 'I want you to come to the party.' },

@@ -74,7 +74,8 @@ function LessonNode({
   const size = lesson.isMilestone ? 80 : 68;
   const { status } = lesson;
   return (
-    <div className="absolute flex flex-col items-center" style={{ left: `calc(50% + ${x}px)`, top: 0, transform: 'translateX(-50%)' }}>
+    // A fixed width stops the label wrapping word-by-word near the edge of the path.
+    <div className="absolute flex w-[9.5rem] flex-col items-center" style={{ left: `calc(50% + ${x}px)`, top: 0, transform: 'translateX(-50%)' }}>
       <button
         type="button"
         onClick={onOpen}
@@ -117,7 +118,10 @@ function LessonNode({
         {lesson.title}
       </span>
       {status === 'current' && (
-        <div className={cn('absolute top-2 flex items-center gap-1.5', x > 0 ? 'right-[calc(100%+10px)]' : 'left-[calc(100%+10px)]')}>
+        <div
+          className="absolute top-2 flex items-center gap-1.5"
+          style={{ [x > 0 ? 'right' : 'left']: `calc(50% + ${size / 2 + 10}px)` }}
+        >
           <EmmaAvatar size={40} animated decorative />
           <span className="animate-pop rounded-2xl bg-ink px-3 py-1.5 text-xs font-extrabold whitespace-nowrap text-cream">¡Vamos!</span>
         </div>

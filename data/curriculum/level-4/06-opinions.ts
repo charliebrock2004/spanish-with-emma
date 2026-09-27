@@ -36,7 +36,7 @@ export default defineLesson({
     word('aburrido', 'aburrido', 'boring', 'adjectives', { alt: ['aburrida'] }),
   ],
   exercises: [
-    intro('que-opinas', { lines: ['Now let’s hear *your* opinions. *¿Qué opinas?*'] }),
+    intro('que-opinas', { lines: ['Now let’s hear your opinions. *¿Qué opinas?*'] }),
     intro('creo-que'),
     intro('me-parece-que'),
     intro('en-mi-opinion'),

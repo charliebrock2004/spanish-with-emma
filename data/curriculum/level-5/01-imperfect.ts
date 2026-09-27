@@ -38,7 +38,7 @@ export default defineLesson({
   exercises: [
     tip(
       'The imperfect',
-      'For how things *used to be* — habits, descriptions, background — Spanish uses the imperfect. -ar verbs take *-aba* (*jugaba*), -er/-ir verbs take *-ía* (*vivía, tenía*). Only three irregulars: *era* (ser), *iba* (ir), *veía* (ver).',
+      'For how things used to be — habits, descriptions, background — Spanish uses the imperfect. -ar verbs take *-aba* (*jugaba*), -er/-ir verbs take *-ía* (*vivía, tenía*). Only three irregulars: *era* (ser), *iba* (ir), *veía* (ver).',
       [
         { spanish: 'De pequeño vivía en un pueblo.', english: 'As a child I lived in a village.' },
         { spanish: 'Siempre jugaba en la calle.', english: 'I always used to play in the street.' },
