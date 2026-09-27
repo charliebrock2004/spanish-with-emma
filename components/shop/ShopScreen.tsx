@@ -52,22 +52,23 @@ function TryOn({ item }: { item: ShopItem | null }) {
   return (
     <div className="relative isolate h-56 overflow-hidden rounded-[2rem] shadow-lift">
       <SceneBackdrop id={background} />
+      {/* Emma stands to the right so her line never covers her face. */}
       {item?.category === 'frame' ? (
-        <div className="absolute inset-0 grid place-items-center">
+        <div className="absolute inset-y-0 right-5 grid place-items-center">
           <EmmaAvatar framed frame={frame} outfit={outfit} background={background} size={132} state="happy" />
         </div>
       ) : (
-        <EmmaPortrait state="happy" outfit={outfit} width={220} className="absolute -bottom-10 left-1/2 w-[190px] -translate-x-1/2 drop-shadow-xl" />
+        <EmmaPortrait state="happy" outfit={outfit} width={220} className="absolute -right-3 -bottom-10 w-[190px] drop-shadow-xl" />
       )}
-      <div className="absolute top-3 left-3 max-w-[58%]">
-        <EmmaBubble id={bubble} tail="left">
+      <div className="absolute top-4 left-3 max-w-[48%]">
+        <EmmaBubble id={bubble} tail="right">
           <p className="text-sm leading-snug font-bold">
             {item ? (isTheme(item) ? 'Everything goes this colour. Fancy!' : '¿Qué te parece? What do you think?') : '¡Hola! Pick something and I’ll try it on.'}
           </p>
         </EmmaBubble>
       </div>
       {theme && (
-        <span className="absolute right-3 bottom-3 rounded-2xl px-4 py-2 text-sm font-black text-white shadow-card" style={{ background: theme.swatch?.[0] }}>
+        <span className="absolute bottom-4 left-3 rounded-2xl px-4 py-2 text-sm font-black text-white shadow-card" style={{ background: theme.swatch?.[0] }}>
           Continue
         </span>
       )}
@@ -112,8 +113,9 @@ function ItemCard({ item, onSelect, selected }: { item: ShopItem; onSelect: () =
         ) : has && !item.consumable ? (
           <span className="text-ink-soft">{item.category === 'scene' ? 'Owned · play it' : 'Owned'}</span>
         ) : mystery ? (
-          <span className="inline-flex items-center gap-1 text-ink-faint">
-            <Icon name="lock" size={12} /> {unlockText(item)}
+          <span className="leading-snug text-ink-faint">
+            <Icon name="lock" size={12} className="mr-1 inline align-[-1px]" />
+            {unlockText(item)}
           </span>
         ) : item.price !== undefined ? (
           <span className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-1', coins >= item.price ? 'bg-[#fff4d6] text-[#8f5d0f]' : 'bg-cream-deep text-ink-faint')}>

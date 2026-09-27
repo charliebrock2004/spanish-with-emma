@@ -377,6 +377,27 @@ export function grantWelcomeChest(tx: Tx): string | null {
   return g.chestId;
 }
 
+/** Cosmetics earned by reaching a player level or a streak length. */
+export function earnedUnlocks(data: Pick<GameData, 'xp' | 'streak'>): string[] {
+  const level = playerLevelFromXp(data.xp).level;
+  const ids = Object.entries(LEVEL_UNLOCKS)
+    .filter(([at]) => Number(at) <= level)
+    .map(([, id]) => id);
+  const best = Math.max(data.streak.current, data.streak.longest);
+  for (const m of STREAK_MILESTONES) if (m.item && m.days <= best) ids.push(m.item);
+  return ids;
+}
+
+/**
+ * Gives the player any level or streak unlock they've already earned but
+ * don't own — one added to the game after they passed that point. Only run
+ * between sessions (on load): mid-transaction it would get ahead of the
+ * level-up or milestone that grants the item with its celebration.
+ */
+export function backfillUnlocks(tx: Tx) {
+  for (const id of earnedUnlocks(tx.data)) if (!isOwned(id, tx.data.inventory.owned)) unlockItem(tx, id);
+}
+
 // ─── Saved data ────────────────────────────────────────────────────────────
 
 const finiteCoins = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0);
@@ -423,17 +444,12 @@ export function migrateToV2(saved: Partial<GameData>, now: number, today: string
   let coins = Math.floor(data.xp / 10);
 
   const level = playerLevelFromXp(data.xp).level;
-  for (let l = 2; l <= level; l++) {
-    claimed[`level:${l}`] = now;
-    if (LEVEL_UNLOCKS[l]) owned[LEVEL_UNLOCKS[l]] = now;
-  }
+  for (let l = 2; l <= level; l++) claimed[`level:${l}`] = now;
 
-  const { current, longest, lastActiveDate } = data.streak;
+  const { current, lastActiveDate } = data.streak;
   const runStart = current > 0 ? addDays(lastActiveDate ?? today, -(current - 1)) : null;
-  for (const m of STREAK_MILESTONES) {
-    if (runStart && m.days <= current) claimed[`streak:${runStart}:${m.days}`] = now;
-    if (m.item && m.days <= Math.max(current, longest)) owned[m.item] = now;
-  }
+  for (const m of STREAK_MILESTONES) if (runStart && m.days <= current) claimed[`streak:${runStart}:${m.days}`] = now;
+  for (const id of earnedUnlocks(data)) owned[id] = now;
   tx.data.streak = { ...data.streak, runStart };
 
   // Achievements (already earned, or newly reachable under the new list) are paid in coins, quietly.

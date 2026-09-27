@@ -248,7 +248,7 @@ export function EmmaBubble({
 }: {
   children: ReactNode;
   className?: string;
-  tail?: 'left' | 'bottom' | 'none';
+  tail?: 'left' | 'right' | 'bottom' | 'none';
   id?: string;
 }) {
   const equipped = useEquipped();
@@ -258,6 +258,7 @@ export function EmmaBubble({
       className={cn(
         'rounded-3xl px-4 py-3 shadow-card',
         tail === 'left' && 'rounded-bl-md',
+        tail === 'right' && 'rounded-br-md',
         tail === 'bottom' && 'rounded-b-md',
         bubble.className,
         className,

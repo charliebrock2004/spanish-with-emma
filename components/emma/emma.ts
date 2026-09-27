@@ -78,7 +78,7 @@ export const BADGE_FOR_STATE: Partial<Record<EmmaState, string>> = {
   celebrating: '🎉',
   surprised: '😮',
   encouraging: '💪',
-  proud: '🥹',
+  proud: '👏',
   confused: '❓',
   sleepy: '💤',
 };

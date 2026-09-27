@@ -124,7 +124,7 @@ function LessonNode({
           </span>
         )}
       </button>
-      {status === 'completed' && <StarRating stars={stars} size={14} className="mt-1.5" />}
+      {status === 'completed' && <StarRating stars={stars} size={14} className="mt-1.5 rounded-full bg-cream/90 px-1.5 py-0.5" />}
       <span
         className={cn(
           'max-w-[9.5rem] rounded-full bg-cream/90 px-2 py-0.5 text-center text-[13px] leading-tight font-extrabold',

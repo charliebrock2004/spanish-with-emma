@@ -12,6 +12,7 @@ import {
   nextComboStep,
 } from '@/lib/game/economy';
 import {
+  backfillUnlocks,
   begin,
   bump,
   checkAchievements,
@@ -536,5 +537,24 @@ describe('upgrading an old save', () => {
     recordStreak(t);
     grant(t, { source: 'lesson', xp: 1 });
     expect(t.events.filter((e) => e.kind === 'level-up' || e.kind === 'streak-milestone')).toHaveLength(0);
+  });
+
+  it('hands over unlocks added to the game after the player passed them — quietly, and only those earned', () => {
+    const t = tx({ xp: totalXpForLevel(16), streak: { ...initialData().streak, current: 2, longest: 9, lastActiveDate: DAY } });
+    backfillUnlocks(t);
+    expect(t.data.inventory.owned['bg-starry']).toBeTruthy(); // level 15
+    expect(t.data.inventory.owned['frame-flame']).toBeTruthy(); // best streak 9 ≥ 7
+    expect(t.data.inventory.owned['outfit-gold']).toBeFalsy(); // level 20 — not yet
+    expect(t.data.inventory.owned['outfit-emerald']).toBeFalsy(); // 30 day streak — not yet
+    expect(t.data.coins).toBe(0);
+    expect(t.events).toHaveLength(0);
+  });
+
+  it('backfills when the game loads', () => {
+    useGameStore.setState({ ...initialData(), xp: totalXpForLevel(16), events: [], hydrated: true });
+    useGameStore.getState().refreshDay();
+    const s = useGameStore.getState();
+    expect(s.inventory.owned['bg-starry']).toBeTruthy();
+    expect(s.coins).toBe(0);
   });
 });

@@ -10,10 +10,12 @@ import { localDateKey } from '@/lib/progress/dates';
 import { markSeen, newVocabProgress, recordVocabAnswer, type VocabLike } from '@/lib/progress/srs';
 import {
   addStats,
+  backfillUnlocks,
   begin,
   bump,
   bumpActivity,
   checkAchievements,
+  earnedUnlocks,
   ensureDay,
   equip as equipItem,
   grant,
@@ -38,7 +40,7 @@ import {
   type RewardLine,
   type Stars,
 } from '@/lib/game/economy';
-import type { BuyBlock } from '@/lib/game/shop';
+import { isOwned, type BuyBlock } from '@/lib/game/shop';
 import { initialData, pickData } from '@/lib/game/state';
 import { uid } from '@/lib/utils';
 
@@ -462,8 +464,12 @@ export const useGameStore = create<GameStore>()(
         refreshDay() {
           const s = get();
           const today = localDateKey();
-          if (s.quests?.date === today && s.questsTomorrow && s.gameCoins.date === today && s.weekly) return;
-          transact((tx) => ensureDay(tx));
+          const upToDate = s.quests?.date === today && s.questsTomorrow && s.gameCoins.date === today && s.weekly;
+          if (upToDate && earnedUnlocks(s).every((id) => isOwned(id, s.inventory.owned))) return;
+          transact((tx) => {
+            ensureDay(tx);
+            backfillUnlocks(tx);
+          });
         },
 
         purchase(itemId) {
