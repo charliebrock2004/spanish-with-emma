@@ -21,6 +21,7 @@ import { soundService } from '@/services/sound/SoundService';
 import { useGameStore } from '@/store/gameStore';
 import { cn, formatNumber } from '@/lib/utils';
 import { ItemPreview, RARITY } from './ItemPreview';
+import { PurchaseReveal } from './PurchaseReveal';
 
 type Tab = 'outfits' | 'backgrounds' | 'frames' | 'bubbles' | 'themes' | 'scenes' | 'boosts';
 
@@ -128,7 +129,7 @@ function ItemCard({ item, onSelect, selected }: { item: ShopItem; onSelect: () =
   );
 }
 
-function ItemSheet({ item, onClose }: { item: ShopItem; onClose: () => void }) {
+function ItemSheet({ item, onClose, onBought }: { item: ShopItem; onClose: () => void; onBought: (item: ShopItem, previous: string | null) => void }) {
   const owned = useGameStore((s) => s.inventory.owned);
   const coins = useGameStore((s) => s.coins);
   const freezes = useGameStore((s) => s.streak.freezes);
@@ -146,9 +147,15 @@ function ItemSheet({ item, onClose }: { item: ShopItem; onClose: () => void }) {
   const check = buyCheck(item, { coins, owned, freezes, boostMinutesLeft: boostLeft });
 
   const buy = () => {
+    const previous = slot ? (equipped[slot] ?? null) : null;
     const result = purchase(item.id);
     if (result.ok) {
       soundService.play('purchase');
+      // Something Emma can wear goes straight on, with a proper reveal.
+      if (slot && equip(item.id)) {
+        onBought(item, previous);
+        return;
+      }
       setBought(emmaLine('purchase'));
     } else {
       soundService.play('incorrect');
@@ -259,6 +266,7 @@ export function ShopScreen() {
   });
   const [selected, setSelected] = useState<string | null>(null);
   const [sheet, setSheet] = useState<string | null>(null);
+  const [reveal, setReveal] = useState<{ item: ShopItem; previous: string | null } | null>(null);
 
   const items = useMemo(() => SHOP_ITEMS.filter((i) => TABS.find((t) => t.id === tab)!.categories.includes(i.category)), [tab]);
   const previewItem = selected ? (ITEMS_BY_ID.get(selected) ?? null) : null;
@@ -323,8 +331,19 @@ export function ShopScreen() {
       </p>
 
       <Sheet open={Boolean(sheetItem)} onClose={() => setSheet(null)} label={sheetItem?.name ?? 'Item'}>
-        {sheetItem && <ItemSheet key={sheetItem.id} item={sheetItem} onClose={() => setSheet(null)} />}
+        {sheetItem && (
+          <ItemSheet
+            key={sheetItem.id}
+            item={sheetItem}
+            onClose={() => setSheet(null)}
+            onBought={(item, previous) => {
+              setSheet(null);
+              setReveal({ item, previous });
+            }}
+          />
+        )}
       </Sheet>
+      {reveal && <PurchaseReveal key={reveal.item.id} item={reveal.item} previous={reveal.previous} onClose={() => setReveal(null)} />}
     </div>
   );
 }

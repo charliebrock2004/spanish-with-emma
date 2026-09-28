@@ -4,74 +4,23 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EmmaAvatar } from '@/components/emma/EmmaAvatar';
 import { StarRating } from '@/components/game-ui/parts';
+import { JourneyRoute, RegionPostcard, TravelLeg } from '@/components/journey/Journey';
 import { PageHeader } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
-import { Chip, ProgressBar } from '@/components/ui/primitives';
+import { Chip } from '@/components/ui/primitives';
 import { Sheet } from '@/components/ui/Sheet';
 import { REGIONS } from '@/data/regions';
 import { lessonStars } from '@/lib/game/economy';
-import { computeJourney, type JourneyLesson, type LevelProgress } from '@/lib/progress/journey';
+import { computeJourney, type JourneyLesson } from '@/lib/progress/journey';
 import { useGameStore } from '@/store/gameStore';
-import type { LessonSummary, LevelId, LevelMeta } from '@/types/curriculum';
+import type { LessonSummary, LevelMeta } from '@/types/curriculum';
 import { cn } from '@/lib/utils';
 
 const ROW = 118;
 const PATH_WIDTH = 300;
 
-const LEVEL_INK: Record<LevelId, string> = {
-  1: 'text-sage-dark',
-  2: 'text-honey-dark',
-  3: 'text-[#2f6b58]',
-  4: 'text-[#3d6a8c]',
-  5: 'text-terracotta-dark',
-  6: 'text-brick',
-};
-
 const offsetFor = (i: number) => Math.sin(i * 0.95) * 78;
-
-function RegionBanner({ meta, progress, stars }: { meta: LevelMeta; progress: LevelProgress; stars: number }) {
-  const region = REGIONS[meta.id];
-  const previous = meta.id > 1 ? REGIONS[(meta.id - 1) as LevelId] : null;
-  return (
-    <div
-      className={cn('relative overflow-hidden rounded-[var(--radius-card)] px-5 py-5 shadow-card', !progress.unlocked && 'grayscale-[0.7]')}
-      style={{ background: `linear-gradient(135deg, ${region.sky[0]}, ${region.sky[1]})` }}
-    >
-      <span className="pointer-events-none absolute -top-3 -right-2 text-[88px] leading-none opacity-20 select-none" aria-hidden>
-        {region.landmark}
-      </span>
-      <div className="relative flex items-start gap-4">
-        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-paper text-3xl shadow-card" aria-hidden>
-          {progress.unlocked ? region.landmark : '🔒'}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className={cn('text-xs font-extrabold tracking-[0.16em] uppercase', LEVEL_INK[meta.id])}>
-            {region.name} · Level {meta.id}
-          </p>
-          <h2 className="font-display text-2xl leading-tight font-semibold">{meta.title}</h2>
-          <p className="mt-1 text-sm text-ink-soft">{region.blurb}</p>
-        </div>
-        <Chip className="bg-paper/80">{meta.cefr}</Chip>
-      </div>
-      {progress.unlocked ? (
-        <div className="relative mt-4 flex items-center gap-3">
-          <ProgressBar value={progress.done} max={progress.total} label={`${region.name} progress`} size="sm" tone="warm" />
-          <span className="shrink-0 text-sm font-extrabold tabular-nums text-ink-soft">
-            {progress.done}/{progress.total}
-          </span>
-          <span className="inline-flex shrink-0 items-center gap-0.5 text-sm font-extrabold text-honey-dark" aria-label={`${stars} of ${progress.total * 3} stars`}>
-            ⭐ {stars}/{progress.total * 3}
-          </span>
-        </div>
-      ) : (
-        <p className="relative mt-4 flex items-center gap-2 text-sm font-bold text-ink-soft">
-          <Icon name="lock" size={16} /> Finish {previous?.name ?? `Level ${meta.id - 1}`} to travel here
-        </p>
-      )}
-    </div>
-  );
-}
 
 function LessonNode({
   lesson,
@@ -217,16 +166,27 @@ export function LevelMap({ lessons, levels }: { lessons: LessonSummary[]; levels
         title="Your journey"
         subtitle={`${totalDone} of ${journey.lessons.length} lessons · ⭐ ${totalStars} of ${journey.lessons.length * 3} · Madrid to Santiago`}
       />
-      <div className="mt-4 space-y-10 pb-8">
-        {levels.map((meta) => {
+      <JourneyRoute levels={journey.levels} current={journey.currentLevel} className="mx-3 mt-1" />
+      <div className="mt-2 pb-8">
+        {levels.map((meta, i) => {
           const progress = journey.levels.find((l) => l.level === meta.id)!;
+          const previous = i > 0 ? journey.levels.find((l) => l.level === levels[i - 1].id)! : null;
           const levelLessons = journey.lessons.filter((l) => l.level === meta.id);
           return (
-            <section key={meta.id} aria-labelledby={`level-${meta.id}`}>
+            <section key={meta.id} aria-labelledby={`level-${meta.id}`} className={cn(i > 0 && 'mt-4')}>
               <h2 id={`level-${meta.id}`} className="sr-only">
                 Level {meta.id}: {meta.title}
               </h2>
-              <RegionBanner meta={meta} progress={progress} stars={levelLessons.reduce((n, l) => n + starsFor(l.id), 0)} />
+              {i > 0 && <TravelLeg to={meta.id} travelled={progress.unlocked} />}
+              <div className={cn(i > 0 && 'mt-4')}>
+                <RegionPostcard
+                  meta={meta}
+                  progress={progress}
+                  previous={previous}
+                  current={meta.id === journey.currentLevel && !journey.finished}
+                  stars={levelLessons.reduce((n, l) => n + starsFor(l.id), 0)}
+                />
+              </div>
               {levelLessons.length > 0 && <LevelPath lessons={levelLessons} colour={REGIONS[meta.id].colour} onOpen={setOpen} starsFor={starsFor} />}
             </section>
           );

@@ -8,6 +8,7 @@ import { CoinIcon, XpIcon } from '@/components/game-ui/icons';
 import { LevelProgressBar } from '@/components/game/LessonComplete';
 import { DailyQuestList } from '@/components/quests/QuestParts';
 import { Button, ButtonLink } from '@/components/ui/Button';
+import { Sparks } from '@/components/game-ui/Sparks';
 import { Confetti } from '@/components/ui/Confetti';
 import { AnimatedNumber } from '@/components/ui/primitives';
 import type { VocabLike } from '@/lib/progress/srs';
@@ -17,6 +18,7 @@ import { useGameStore } from '@/store/gameStore';
 import type { SessionResult } from '@/types/game';
 import { cn } from '@/lib/utils';
 import type { GameDef } from './catalog';
+import { MEDAL_EMOJI, MEDAL_NAME, medalFor, medalRank, nextMedal } from './medals';
 
 export interface GameOutcome {
   score: number;
@@ -34,11 +36,38 @@ export interface GameOutcome {
 
 export interface GameSummary extends GameOutcome {
   result: SessionResult;
+  /** The personal best before this game (for "new medal"). */
+  previousBest: number;
+}
+
+/** The medal this score earned, a "new medal" stamp when it beats your old best medal, and what's next. */
+function MedalRow({ game, score, previousBest }: { game: GameDef; score: number; previousBest: number }) {
+  const medal = medalFor(game, score);
+  const improved = medalRank(medal) > medalRank(medalFor(game, previousBest));
+  const next = nextMedal(game, score);
+  return (
+    <div className="mt-4 flex items-center gap-3 rounded-2xl bg-paper px-4 py-3 shadow-card">
+      <span className={cn('relative grid h-14 w-14 shrink-0 place-items-center rounded-full text-4xl', medal ? 'bg-sun-light' : 'bg-cream-deep opacity-50')} aria-hidden>
+        <span className={cn(medal && 'animate-slam [animation-delay:700ms]')}>{medal ? MEDAL_EMOJI[medal] : '🥉'}</span>
+        {improved && <Sparks key={medal} count={12} distance={40} />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="font-extrabold">
+          {medal ? `${MEDAL_NAME[medal]} medal` : 'No medal yet'}
+          {improved && <span className="ml-2 animate-pop rounded-full bg-terracotta px-2 py-0.5 text-[10px] font-black tracking-wide text-white uppercase [animation-delay:900ms]">New!</span>}
+        </p>
+        <p className="text-sm text-ink-soft">
+          {next ? `${MEDAL_EMOJI[next.medal]} ${MEDAL_NAME[next.medal]} at ${next.score} — ${next.toGo} more points` : 'The top medal. ¡Qué crack!'}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 /** Saves a finished game: spaced review, rewards, streak, personal best. Call once per play. */
 export function recordGame(game: GameDef, outcome: GameOutcome, play: { sessionId: string; xpBefore: number }): GameSummary {
   const store = useGameStore.getState();
+  const previousBest = store.gameBests[game.id] ?? 0;
   if (outcome.words.length) store.recordVocab(outcome.words);
   const result = store.completeSession(
     {
@@ -61,7 +90,7 @@ export function recordGame(game: GameDef, outcome: GameOutcome, play: { sessionI
       bestCombo: outcome.bestCombo,
     },
   );
-  return { ...outcome, result };
+  return { ...outcome, result, previousBest };
 }
 
 function emmaVerdict(summary: GameSummary, record: boolean) {
@@ -88,13 +117,13 @@ export function GameResults({ game, summary, onReplay }: { game: GameDef; summar
     soundService.play(record ? 'record' : 'complete');
     const coin = window.setTimeout(() => soundService.play('coin'), 900);
     const t = window.setTimeout(() => void voiceService.say(line.replace(/¡[^!]*!/, (m) => `*${m}*`), { style: record ? 'excited' : 'cheerful' }), 700);
-    setToastsPaused(true);
-    const resume = window.setTimeout(() => setToastsPaused(false), 2400);
+    setToastsPaused(true, 'game-results');
+    const resume = window.setTimeout(() => setToastsPaused(false, 'game-results'), 2400);
     return () => {
       window.clearTimeout(coin);
       window.clearTimeout(t);
       window.clearTimeout(resume);
-      setToastsPaused(false);
+      setToastsPaused(false, 'game-results');
     };
   }, [line, record, setToastsPaused]);
 
@@ -126,7 +155,9 @@ export function GameResults({ game, summary, onReplay }: { game: GameDef; summar
           )}
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-2">
+        <MedalRow game={game} score={summary.score} previousBest={summary.previousBest} />
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
           <div className="rounded-2xl bg-sun-light px-2 py-3 text-center">
             <p className="flex items-center justify-center gap-1 text-xs font-extrabold tracking-wide text-honey-dark uppercase">
               <XpIcon size={14} /> XP

@@ -8,11 +8,12 @@ import type { EmmaState } from '@/components/emma/emma';
 import { ChestIcon, CoinIcon, FlameIcon } from '@/components/game-ui/icons';
 import { LevelBadge, XpBar } from '@/components/game-ui/parts';
 import { DailyQuestList, TomorrowPreview, WeeklyCard } from '@/components/quests/QuestParts';
+import { JourneyCard } from '@/components/journey/Journey';
 import { ButtonLink } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Card } from '@/components/ui/primitives';
 import { useVoiceStatus } from '@/components/voice/hooks';
-import { REGIONS } from '@/data/regions';
+import { ACHIEVEMENTS } from '@/data/achievements';
 import { CHESTS } from '@/lib/game/chests';
 import { levelUpReward } from '@/lib/game/economy';
 import { playerLevelFromXp } from '@/lib/game/levels';
@@ -54,10 +55,11 @@ function useMood(): Mood {
     const hello = greeting(hour, name);
     const status = streakStatus(streak, localDateKey());
     if (lessons === 0) return { state: 'excited', line: `${hello} I'm Emma. Let's get your very first Spanish words sorted — it takes five minutes.` };
+    // Someone back after a while hears "welcome back" before anything else — never guilt.
+    if (status.lapsed && streak.longest > 1) return { state: 'happy', line: `${hello} You're back! I missed you. No guilt — let's just pick up where we left off.` };
     if (unopened > 0) return { state: 'excited', line: `${hello} Ooh — you've got ${unopened === 1 ? 'a chest' : `${unopened} chests`} to open. Go on…` };
     if (allQuestsDone(quests)) return { state: 'proud', line: `${hello} Every quest done today. ¡Qué crack! Anything else is a bonus.` };
     if (hour >= 22 || hour < 5) return { state: 'sleepy', line: `${hello} It's late… one wee lesson and then bed?` };
-    if (status.lapsed && streak.longest > 1) return { state: 'happy', line: `${hello} No guilt — let's just pick up where we left off.` };
     if (status.atRisk && status.display > 0) return { state: 'encouraging', line: `${hello} Your ${status.display}-day streak is waiting for you. One quick lesson?` };
     if (status.activeToday) return { state: 'happy', line: `${hello} Nice work today. Fancy a quest or a wee chat?` };
     return { state: 'happy', line: `${hello} Ready for a little Spanish?` };
@@ -105,7 +107,9 @@ function NextReward() {
   const streak = useGameStore((s) => s.streak);
   const level = playerLevelFromXp(xp);
   const reward = levelUpReward(level.level + 1);
-  const milestone = nextMilestone(streak.current);
+  // The streak as it really stands today (a lapsed one counts as zero until you play).
+  const current = streakStatus(streak, localDateKey()).display;
+  const milestone = nextMilestone(current);
   return (
     <div className="mt-3 grid grid-cols-2 gap-2">
       <Link href="/profile" className="rounded-2xl bg-paper px-3 py-2.5 shadow-card active:scale-[0.98]">
@@ -123,13 +127,13 @@ function NextReward() {
       </Link>
       <Link href="/quests#streak" className="rounded-2xl bg-paper px-3 py-2.5 shadow-card active:scale-[0.98]">
         <span className="flex items-center gap-2">
-          <FlameIcon size={30} lit={streak.current > 0} />
+          <FlameIcon size={30} lit={current > 0} />
           <span className="min-w-0 text-xs leading-tight font-extrabold">
             {milestone ? `${milestone.days} day streak` : 'Legend status'}
-            <span className="block font-bold text-ink-soft">{milestone ? `${milestone.days - streak.current} day${milestone.days - streak.current === 1 ? '' : 's'} to go` : 'You did it'}</span>
+            <span className="block font-bold text-ink-soft">{milestone ? `${milestone.days - current} day${milestone.days - current === 1 ? '' : 's'} to go` : 'You did it'}</span>
           </span>
         </span>
-        <XpBar progress={milestone ? streak.current / milestone.days : 1} className="mt-2" />
+        <XpBar progress={milestone ? current / milestone.days : 1} className="mt-2" />
         {milestone && (
           <span className="mt-1.5 flex items-center gap-1 text-[11px] font-extrabold text-ink-soft">
             +{milestone.coins} <CoinIcon size={12} /> {milestone.item || milestone.chest ? '+ a surprise' : ''}
@@ -179,20 +183,19 @@ function QuickTile({ href, emoji, title, detail, tone }: { href: string; emoji: 
   );
 }
 
-export function HomeScreen({ lessons, levels }: { lessons: LessonSummary[]; levels: LevelMeta[] }) {
+export function HomeScreen({ lessons }: { lessons: LessonSummary[]; levels: LevelMeta[] }) {
   const placement = useGameStore((s) => s.profile.placementLevel);
   const completed = useGameStore((s) => s.completedLessons);
   const quests = useGameStore((s) => s.quests);
   const weekly = useGameStore((s) => s.weekly);
   const coins = useGameStore((s) => s.coins);
   const vocab = useGameStore((s) => s.vocab);
+  const achievements = useGameStore((s) => Object.keys(s.achievements).length);
   const mood = useMood();
   const now = useNow();
 
   const journey = useMemo(() => computeJourney(lessons, completed, placement), [lessons, completed, placement]);
   const dueCount = useMemo(() => (now ? reviewQueue(vocab, now, { limit: 99 }).length : 0), [vocab, now]);
-  const region = REGIONS[journey.currentLevel];
-  const meta = levels.find((l) => l.id === journey.currentLevel);
   const progress = journey.levels.find((l) => l.level === journey.currentLevel);
   const next = journey.current;
   const firstTime = Object.keys(completed).length === 0;
@@ -200,18 +203,7 @@ export function HomeScreen({ lessons, levels }: { lessons: LessonSummary[]; leve
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pt-3">
-      <Stage mood={mood}>
-        <Link
-          href="/learn"
-          className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full bg-paper/85 px-3 py-1.5 text-xs font-extrabold text-ink shadow-card backdrop-blur"
-        >
-          <span aria-hidden>{region.landmark}</span>
-          <span className="truncate">
-            {region.name} · Level {journey.currentLevel}
-            {meta ? ` · ${meta.cefr}` : ''}
-          </span>
-        </Link>
-      </Stage>
+      <Stage mood={mood} />
 
       {/* The big button */}
       <div className="mt-4 animate-enter [animation-delay:60ms]">
@@ -237,6 +229,8 @@ export function HomeScreen({ lessons, levels }: { lessons: LessonSummary[]; leve
             Talk to Emma
           </ButtonLink>
         )}
+        {/* What you're working towards: this stop on the journey, then level and streak. */}
+        <JourneyCard levels={journey.levels} current={journey.currentLevel} lessonsLeft={progress ? progress.total - progress.done : 0} />
         <NextReward />
       </div>
 
@@ -269,7 +263,7 @@ export function HomeScreen({ lessons, levels }: { lessons: LessonSummary[]; leve
         <QuickTile href="/emma" emoji="💬" title="Talk to Emma" detail="Real conversation practice" tone="bg-ink text-cream" />
         <QuickTile href="/review" emoji="🎮" title="Games & review" detail={dueCount > 0 ? `${dueCount} word${dueCount === 1 ? '' : 's'} to refresh` : 'Six games to play'} tone="bg-paper" />
         <QuickTile href="/shop" emoji="🛍️" title="Shop" detail={`${formatNumber(coins)} coins to spend`} tone="bg-[#fff4d6]" />
-        <QuickTile href="/learn" emoji="🗺️" title="World map" detail={`${region.name} · ${progress?.done ?? 0}/${progress?.total ?? 0}`} tone="bg-sage-light" />
+        <QuickTile href="/profile#achievements" emoji="🏆" title="Achievements" detail={`${achievements} of ${ACHIEVEMENTS.length} unlocked`} tone="bg-sage-light" />
       </div>
 
       <p className="mt-6 mb-2 text-center text-xs font-bold text-ink-faint">Tip: tap Emma to hear her.</p>

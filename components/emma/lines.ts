@@ -34,6 +34,13 @@ const LINES = {
   welcomeBack: ["You're back! No guilt — let's just pick up where we left off.", '¡Hola de nuevo! I kept your seat warm.'],
   todayDone: ["That's you done for today. Go have a cup of tea — you've earned it.", "Everything done! ¡Qué crack! Same time tomorrow?"],
   newRecord: ['¡Nuevo récord! Your best score yet.', 'A new record! Frame that one.'],
+  // ─── Lesson pacing ───
+  finalChallenge: ['Last one — make it count!', "Final challenge. You've got this.", "One more and it's done. ¡Vamos!"],
+  finalDone: ["¡Eso es! That's the lesson in the bag.", "And that's a wrap!", 'Final one — nailed it.'],
+  firstWord: ["¡Perfecto! That's your very first Spanish word.", 'Listen to you! Your first Spanish word.'],
+  // ─── Collecting ───
+  wearing: ['Ta-da! What do you think?', "Right, I'm keeping this on.", 'Oh, I love it. Very me.'],
+  newLook: ['Ooh, something new to wear!', "A new look! I'll try it on later.", 'For me? You shouldn’t have.'],
 } as const;
 
 export type LineKind = keyof typeof LINES;
@@ -47,6 +54,14 @@ export function emmaLine(kind: LineKind): string {
   const line = options[Math.floor(Math.random() * options.length)];
   lastUsed.set(kind, line);
   return line;
+}
+
+/** The same line for the same `seed` — for lines chosen while rendering, which must be pure. */
+export function emmaLineFor(kind: LineKind, seed: string): string {
+  const pool = LINES[kind];
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return pool[hash % pool.length];
 }
 
 /** Emma's line when a combo crosses a multiplier step (3, 5, 10). */

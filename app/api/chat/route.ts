@@ -34,7 +34,21 @@ function parseBody(input: unknown): ChatPromptInput | null {
     messages,
     topic: found ? { id: found.id, title: found.title, brief: found.brief } : undefined,
     struggling: b.struggling === true,
+    knownWords: parseWords(b.knownWords),
   };
+}
+
+/** Known words: short, letters only (no punctuation that could smuggle instructions), at most 40. */
+function parseWords(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const words = new Set<string>();
+  for (const w of input) {
+    if (typeof w !== 'string') continue;
+    const clean = w.normalize('NFC').trim().toLowerCase();
+    if (clean && clean.length <= 32 && /^[\p{L}\p{M} ]+$/u.test(clean)) words.add(clean);
+    if (words.size >= 40) break;
+  }
+  return [...words];
 }
 
 export async function POST(request: Request) {

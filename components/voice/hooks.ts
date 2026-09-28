@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { haptics } from '@/services/haptics';
 import { voiceService, type SayOptions, type VoiceCapabilities, type VoiceStatus } from '@/services/voice/VoiceService';
 import { useGameStore } from '@/store/gameStore';
 import { toVoiceError } from '@/services/voice/errors';
@@ -84,6 +85,7 @@ export function useListener(lang: RecognitionLang = 'es-ES') {
     setError(null);
     setInterim('');
     setState('listening');
+    haptics.play('tap');
     const current = voiceService.listen({
       lang,
       onInterim: setInterim,

@@ -40,6 +40,16 @@ type Msg =
 type NewMsg = Msg extends infer M ? (M extends Msg ? Omit<M, 'id'> : never) : never;
 
 
+/** The words the learner knows best — Emma builds on them. */
+function knownWords(vocab: Record<string, { spanish: string; timesCorrect: number }>): string[] {
+  return Object.values(vocab)
+    .filter((v) => v.timesCorrect > 0)
+    .sort((a, b) => b.timesCorrect - a.timesCorrect)
+    .slice(0, 30)
+    .map((v) => v.spanish.replace(/[¿?¡!.,]/g, '').trim())
+    .filter(Boolean);
+}
+
 export function ChatScreen({ scenario, topic }: { scenario?: GuidedScenario; topic?: TopicDef }) {
   const caps = useCapabilities();
   const router = useRouter();
@@ -178,8 +188,8 @@ function Conversation({ scenario, topic }: { scenario?: GuidedScenario; topic?: 
   // Achievements wait until the conversation is over (like in lessons).
   const setToastsPaused = useGameStore((s) => s.setToastsPaused);
   useEffect(() => {
-    setToastsPaused(!ended);
-    return () => setToastsPaused(false);
+    setToastsPaused(!ended, 'chat');
+    return () => setToastsPaused(false, 'chat');
   }, [ended, setToastsPaused]);
 
   const push = useCallback((msg: NewMsg) => {
@@ -267,6 +277,7 @@ function Conversation({ scenario, topic }: { scenario?: GuidedScenario; topic?: 
             messages: transcript.current,
             topicId: topic?.id,
             struggling: struggles.current >= 2,
+            knownWords: knownWords(useGameStore.getState().vocab),
           },
           accessCode,
         );

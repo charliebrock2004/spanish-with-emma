@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import type { Capabilities } from '@/types/capabilities';
 import { curriculumLevel, useGameStore } from '@/store/gameStore';
 import { voiceService } from '@/services/voice/VoiceService';
+import { haptics } from '@/services/haptics';
 import { soundService } from '@/services/sound/SoundService';
 import { musicService } from '@/services/sound/MusicService';
 import { useVoiceStatus } from '@/components/voice/hooks';
@@ -51,6 +52,7 @@ function ServicesBridge({ capabilities }: { capabilities: Capabilities }) {
     });
     soundService.setEnabled(settings.soundEffects);
     soundService.setVolume(settings.soundVolume);
+    haptics.setEnabled(settings.haptics);
   }, [settings, level, capabilities]);
 
   useEffect(() => {

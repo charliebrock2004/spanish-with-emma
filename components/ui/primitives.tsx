@@ -19,6 +19,7 @@ export function ProgressBar({
   tone = 'warm',
   size = 'md',
   className,
+  glint,
 }: {
   value: number;
   max?: number;
@@ -26,6 +27,8 @@ export function ProgressBar({
   tone?: 'warm' | 'sage' | 'sun' | 'terracotta';
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  /** Change this to sweep a highlight across the bar (e.g. after a right answer). */
+  glint?: string | number;
 }) {
   const pct = Math.max(0, Math.min(100, (value / (max || 1)) * 100));
   const fills = {
@@ -45,10 +48,11 @@ export function ProgressBar({
       className={cn('w-full overflow-hidden rounded-full bg-cream-deep', heights[size], className)}
     >
       <div
-        className={cn('relative h-full rounded-full transition-[width] duration-700 ease-[var(--ease-out-soft)]', fills[tone])}
+        className={cn('relative h-full overflow-hidden rounded-full transition-[width] duration-700 ease-[var(--ease-out-soft)]', fills[tone])}
         style={{ width: `${pct}%`, minWidth: pct > 0 ? '0.75rem' : 0 }}
       >
         {size !== 'sm' && <span className="absolute inset-x-2 top-[3px] h-[3px] rounded-full bg-white/35" />}
+        {glint !== undefined && <span key={glint} className="glint absolute inset-0" aria-hidden />}
       </div>
     </div>
   );

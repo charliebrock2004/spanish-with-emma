@@ -42,6 +42,7 @@ export function LessonPlayer({
       const levelIds = summaries.filter((s) => s.level === lesson.level).map((s) => s.id);
       const levelDone = levelIds.every((id) => id === lesson.id || store.completedLessons[id]);
       const newLevel = levelDone && !store.completedLevels.includes(lesson.level);
+      const doneBefore = levelIds.filter((id) => store.completedLessons[id]).length;
       const outcome = store.completeLesson({
         lessonId: lesson.id,
         sessionId: session.sessionId,
@@ -73,6 +74,12 @@ export function LessonPlayer({
           xpAfter: outcome.xpAfter,
           chestId: outcome.chestId,
           bestCombo: session.bestCombo,
+          journey: {
+            level: lesson.level,
+            before: doneBefore,
+            after: levelIds.filter((id) => after.completedLessons[id]).length,
+            total: levelIds.length,
+          },
         },
       });
       if (newLevel) {
@@ -92,6 +99,7 @@ export function LessonPlayer({
         <LessonComplete
           summary={result.summary}
           primaryLabel={result.next ? 'Next lesson' : 'Back to the map'}
+          primaryDetail={result.next ? `${result.next.emoji} ${result.next.title}` : undefined}
           onPrimary={() => router.push(result.next ? `/lesson/${result.next.id}` : '/learn')}
           secondaryLabel={result.next ? 'Back to the map' : undefined}
           onSecondary={() => router.push('/learn')}

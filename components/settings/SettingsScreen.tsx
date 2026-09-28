@@ -8,6 +8,7 @@ import { useCapabilities } from '@/components/providers/AppProviders';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Card, Segmented, Slider, Toggle } from '@/components/ui/primitives';
+import { haptics } from '@/services/haptics';
 import { soundService } from '@/services/sound/SoundService';
 import { SAVE_VERSION } from '@/store/gameStore';
 import { Sheet } from '@/components/ui/Sheet';
@@ -465,6 +466,16 @@ export function SettingsScreen() {
             />
           </div>
         )}
+        <Toggle
+          label="Vibration"
+          description="A little buzz for right answers, combos and rewards, on phones that support it."
+          checked={settings.haptics}
+          onChange={(on) => {
+            updateSettings({ haptics: on });
+            haptics.setEnabled(on);
+            if (on) haptics.play('success');
+          }}
+        />
         <Toggle label="Music" description="A gentle Spanish guitar loop on the menus." checked={settings.music} onChange={(music) => updateSettings({ music })} />
         <Toggle label="Reduce motion" description="Fewer animations and no confetti." checked={settings.reduceMotion} onChange={(reduceMotion) => updateSettings({ reduceMotion })} />
       </Section>

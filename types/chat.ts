@@ -23,6 +23,8 @@ export interface ChatRequestBody {
   topicId?: string;
   /** The player has been struggling — Emma should simplify. */
   struggling: boolean;
+  /** Spanish words the learner already knows well (so Emma can build on them). */
+  knownWords?: string[];
 }
 
 /** What the server builds Emma's prompt from. */

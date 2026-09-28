@@ -11,6 +11,7 @@ import { soundService } from '@/services/sound/SoundService';
 import { useGameStore } from '@/store/gameStore';
 import { cn } from '@/lib/utils';
 import type { GameDef } from './catalog';
+import { MEDALS, MEDAL_EMOJI, MEDAL_NAME } from './medals';
 
 /** "+30" floating up from the score whenever it goes up. */
 function ScorePop({ score }: { score: number }) {
@@ -151,6 +152,29 @@ export function GameIntro({ game, best, onStart, note }: { game: GameDef; best?:
           </span>
           <h1 className="mt-5 font-display text-[34px] leading-tight font-semibold">{game.title}</h1>
           <p className="mt-2 max-w-xs text-ink-soft">{game.howTo}</p>
+          {/* The three medals to aim for; the ones you've already won are lit. */}
+          <ul className="mt-5 flex gap-2" aria-label="Medals">
+            {MEDALS.map((m, i) => {
+              const won = (best ?? 0) >= game.medals[i];
+              return (
+                <li key={m} className={cn('flex w-[5.5rem] flex-col items-center rounded-2xl px-2 py-2 shadow-card', won ? 'bg-sun-light' : 'bg-paper')}>
+                  <span className={cn('text-3xl', !won && 'opacity-45')} aria-hidden>
+                    {MEDAL_EMOJI[m]}
+                  </span>
+                  <span className="text-[10px] font-extrabold tracking-wide text-ink-soft uppercase" aria-hidden>
+                    {MEDAL_NAME[m]}
+                  </span>
+                  <span className="text-xs font-black tabular-nums" aria-hidden>
+                    {won ? '✓ ' : ''}
+                    {game.medals[i]}
+                  </span>
+                  <span className="sr-only">
+                    {MEDAL_NAME[m]} at {game.medals[i]} points{won ? ', won' : ''}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             {best !== undefined && best > 0 && (
               <span className="rounded-full bg-sun-light px-3.5 py-1.5 text-sm font-extrabold text-honey-dark">🏆 Your best: {best}</span>

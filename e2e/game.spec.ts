@@ -106,7 +106,12 @@ test('buying and wearing a cosmetic', async ({ page }) => {
   await page.goto('/shop');
   await page.locator('[data-item="outfit-flamenco"]').click();
   await page.getByRole('button', { name: /Buy for 500/ }).click();
-  await page.getByRole('button', { name: 'Wear it now' }).click();
+  // Emma puts it straight on, with a reveal — and the old look is one tap away.
+  const reveal = page.getByRole('dialog', { name: /Flamenco Red — Emma's wearing it now/ });
+  await expect(reveal).toBeVisible();
+  await expect(reveal.getByRole('button', { name: /switch back/ })).toBeVisible();
+  await reveal.getByRole('button', { name: '¡Me encanta!' }).click();
+  await expect(reveal).toHaveCount(0);
   await expect(page.getByTestId('hud-coins')).toContainText('525'); // 500 back from 1,000, +25 for the "Treat Yourself" achievement
   await page.goto('/');
   await expect(page.locator('main img[src*="/emma/outfits/outfit-flamenco/"]').first()).toBeVisible();
@@ -177,6 +182,8 @@ test('voice settings: expressive voice, effects volume and Emma’s device voice
 test('a full game: countdown, play, results with rewards', async ({ page }) => {
   await seed(page, gameState());
   await page.goto('/play/listen-pick');
+  // Three medals to aim for before you start.
+  await expect(page.getByRole('list', { name: 'Medals' }).getByRole('listitem')).toHaveCount(3);
   await page.getByRole('button', { name: 'Start' }).click();
   await expect(page.getByRole('timer')).toBeVisible();
   const answers = page.getByRole('group', { name: 'What does it mean?' });
@@ -191,6 +198,8 @@ test('a full game: countdown, play, results with rewards', async ({ page }) => {
   }
   await expect(page.getByRole('button', { name: 'Play again' })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('list', { name: 'Rewards' }).getByText('Game complete')).toBeVisible();
+  // The results say which medal the score earned (or what the next one needs).
+  await expect(page.getByText(/(Bronze|Silver|Gold) medal|No medal yet/)).toBeVisible();
   const state = await saved(page);
   expect(state.stats.gamesPlayed).toBe(1);
   expect(state.gameCoins.coins).toBeGreaterThan(0);

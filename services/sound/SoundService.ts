@@ -21,7 +21,14 @@ export type SoundName =
   | 'go'
   | 'record'
   | 'purchase'
-  | 'quest';
+  | 'quest'
+  | 'final'
+  | 'milestone'
+  | 'speakStart'
+  | 'speakSuccess'
+  | 'unlock'
+  | 'travel'
+  | 'region';
 
 interface ToneOptions {
   type?: OscillatorType;
@@ -120,8 +127,9 @@ class SoundService {
         this.tone(NOTE(88), t + 0.09, 0.3, { gain: 0.04, type: 'triangle', detune: 6 });
         break;
       case 'incorrect':
-        this.tone(NOTE(57), t, 0.18, { gain: 0.09, type: 'triangle' });
-        this.tone(NOTE(53), t + 0.12, 0.3, { gain: 0.08, type: 'triangle' });
+        // Soft and low — a "hmm, not quite", never a buzzer.
+        this.tone(NOTE(64), t, 0.2, { gain: 0.07, type: 'sine' });
+        this.tone(NOTE(60), t + 0.13, 0.34, { gain: 0.065, type: 'sine' });
         break;
       case 'xp':
         [84, 88, 91, 96].forEach((n, i) => this.tone(NOTE(n), t + i * 0.045, 0.16, { gain: 0.06 }));
@@ -184,6 +192,44 @@ class SoundService {
         break;
       case 'quest':
         [74, 78, 81, 86].forEach((n, i) => this.tone(NOTE(n), t + i * 0.06, 0.28, { gain: 0.07, type: 'triangle' }));
+        break;
+      case 'final':
+        // The last question: a short "here we go" lift.
+        this.tone(NOTE(67), t, 0.16, { gain: 0.07, type: 'triangle' });
+        this.tone(NOTE(74), t + 0.13, 0.4, { gain: 0.07, type: 'triangle' });
+        this.bell(NOTE(86), t + 0.13, 0.03);
+        break;
+      case 'milestone':
+        [76, 79, 84, 88].forEach((n, i) => this.tone(NOTE(n), t + i * 0.06, 0.3, { gain: 0.08, type: 'triangle' }));
+        this.bell(NOTE(96), t + 0.26, 0.05);
+        this.bell(NOTE(100), t + 0.4, 0.035);
+        break;
+      case 'speakStart':
+        // The microphone opening.
+        this.tone(NOTE(81), t, 0.07, { gain: 0.045 });
+        this.tone(NOTE(88), t + 0.06, 0.1, { gain: 0.045 });
+        break;
+      case 'speakSuccess':
+        // A warm chord that blooms: different from a tapped answer.
+        [72, 76, 79].forEach((n) => this.tone(NOTE(n), t, 0.7, { gain: 0.05, attack: 0.04, release: 0.7 }));
+        this.tone(NOTE(84), t + 0.08, 0.5, { gain: 0.06, type: 'triangle' });
+        this.bell(NOTE(91), t + 0.16, 0.04);
+        break;
+      case 'unlock':
+        [84, 86, 88, 91, 93, 96].forEach((n, i) => this.tone(NOTE(n), t + i * 0.035, 0.22, { gain: 0.045 }));
+        this.bell(NOTE(100), t + 0.24, 0.05);
+        break;
+      case 'travel':
+        // A station chime: time to move on to the next city.
+        this.bell(NOTE(79), t, 0.06);
+        this.bell(NOTE(76), t + 0.22, 0.06);
+        this.bell(NOTE(84), t + 0.44, 0.06);
+        break;
+      case 'region':
+        [67, 72, 76, 79].forEach((n, i) => this.tone(NOTE(n), t + i * 0.13, 0.38, { gain: 0.1, type: 'triangle' }));
+        [72, 76, 79, 84, 88].forEach((n, i) => this.tone(NOTE(n), t + 0.56 + i * 0.02, 1.8, { gain: 0.05 }));
+        this.bell(NOTE(96), t + 0.56, 0.05);
+        this.bell(NOTE(103), t + 0.8, 0.03);
         break;
     }
   }

@@ -77,12 +77,15 @@ export function LessonHeader({
   onClose,
   showHearts = true,
   combo = 0,
+  glint,
 }: {
   progress: number;
   hearts: number;
   onClose: () => void;
   showHearts?: boolean;
   combo?: number;
+  /** Changes on every right answer, sweeping a highlight along the bar. */
+  glint?: number;
 }) {
   return (
     <header className="sticky top-0 z-20 bg-cream/95 backdrop-blur safe-top">
@@ -95,7 +98,7 @@ export function LessonHeader({
         >
           <Icon name="x" size={24} />
         </button>
-        <ProgressBar value={progress} max={1} label="Lesson progress" className="flex-1" tone={comboMultiplier(combo) > 1 ? 'sun' : 'warm'} />
+        <ProgressBar value={progress} max={1} label="Lesson progress" className="flex-1" tone={comboMultiplier(combo) > 1 ? 'sun' : 'warm'} glint={glint || undefined} />
         <ComboMeter combo={combo} />
         <VoiceModeToggle />
         {showHearts && <Hearts count={hearts} />}

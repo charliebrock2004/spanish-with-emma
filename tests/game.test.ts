@@ -26,6 +26,7 @@ import {
   recordStreak,
   type Tx,
 } from '@/lib/game/engine';
+import { leadingGroup, MAX_GROUPED_ACHIEVEMENTS, mergeLevelUps } from '@/lib/game/celebrations';
 import { MAX_PLAYER_LEVEL, playerLevelFromXp, totalXpForLevel, xpToNext } from '@/lib/game/levels';
 import { allQuestsDone, generateDailyQuests, progressQuests } from '@/lib/game/quests';
 import { buyCheck } from '@/lib/game/shop';
@@ -556,5 +557,45 @@ describe('upgrading an old save', () => {
     const s = useGameStore.getState();
     expect(s.inventory.owned['bg-starry']).toBeTruthy();
     expect(s.coins).toBe(0);
+  });
+});
+
+describe('celebrations', () => {
+  const up = (level: number, coins: number, items: string[] = [], chestId: string | null = null) => ({ id: `u${level}`, kind: 'level-up' as const, level, coins, items, chestId });
+  const ach = (id: string) => ({ id: `a-${id}`, kind: 'achievement' as const, achievementId: id, coins: 25 });
+
+  it('shows level-ups that land together as one moment, with everything they paid', () => {
+    // Level 2 mid-lesson, an achievement, then levels 3 and 4 at the end: one moment for all three levels.
+    const queue = [up(2, 25), ach('first-word'), up(3, 25, ['bubble-sunset']), up(4, 25, [], 'chest:level:5')];
+    const group = leadingGroup(queue);
+    expect(group.map((e) => e.id)).toEqual(['u2', 'u3', 'u4']);
+    const merged = mergeLevelUps(group as ReturnType<typeof up>[]);
+    expect(merged).toMatchObject({ level: 4, coins: 75, items: ['bubble-sunset'], chestId: 'chest:level:5' });
+  });
+
+  it('groups a few achievements into one toast, and leaves everything else alone', () => {
+    const many = ['a', 'b', 'c', 'd', 'e'].map(ach);
+    expect(leadingGroup(many)).toHaveLength(MAX_GROUPED_ACHIEVEMENTS);
+    expect(leadingGroup([ach('a'), up(2, 25), ach('b')]).map((e) => e.id)).toEqual(['a-a', 'a-b']);
+    const quest = { id: 'q', kind: 'daily-goal' as const, reward: { xp: 20, coins: 10 } };
+    expect(leadingGroup([quest, quest])).toHaveLength(1);
+    expect(leadingGroup([])).toHaveLength(0);
+  });
+});
+
+describe('mini-game medals', () => {
+  it('awards bronze, silver and gold by score, and says what the next one needs', async () => {
+    const { GAME_BY_ID, GAMES } = await import('@/components/games/catalog');
+    const { medalFor, nextMedal } = await import('@/components/games/medals');
+    const game = GAME_BY_ID.get('listen-pick')!;
+    const [bronze, silver, gold] = game.medals;
+    expect(medalFor(game, bronze - 1)).toBeNull();
+    expect(medalFor(game, bronze)).toBe('bronze');
+    expect(medalFor(game, silver)).toBe('silver');
+    expect(medalFor(game, gold + 50)).toBe('gold');
+    expect(nextMedal(game, silver)).toMatchObject({ medal: 'gold', toGo: gold - silver });
+    expect(nextMedal(game, gold)).toBeNull();
+    // Every game's thresholds climb.
+    for (const g of GAMES) expect(g.medals[0] < g.medals[1] && g.medals[1] < g.medals[2]).toBe(true);
   });
 });

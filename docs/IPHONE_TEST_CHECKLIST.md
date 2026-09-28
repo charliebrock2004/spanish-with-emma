@@ -11,7 +11,8 @@ Tick each box; anything marked **Expected** that doesn't happen is a bug.
 ## 1. First run and layout
 
 - [ ] Open the site: the welcome screen appears, with no horizontal scrolling and nothing under the notch or Dynamic Island.
-- [ ] Go through onboarding. **Expected:** Home shows the HUD (level, streak, coins), Emma on her stage, **Continue quest**, daily quests, and a welcome chest.
+- [ ] Go through onboarding. **Expected:** the last step is a boarding pass ("Tarjeta de embarque") for Madrid with your name and first lesson; **Let's go to Madrid** stamps it "¡Buen viaje!", a station chime plays and the first lesson opens.
+- [ ] Back on Home. **Expected:** the HUD (level, streak, coins), Emma on her stage, **Continue quest**, a "Your journey" card with the route to Santiago, daily quests, and a welcome chest.
 - [ ] Rotate to landscape and back. **Expected:** nothing overlaps, and the bottom nav stays above the home indicator.
 - [ ] Settings → Accessibility → Display & Text Size → Larger Text (a few steps). **Expected:** text grows, buttons still fit, and nothing is cut off.
 - [ ] iOS Reduce Motion **on**, and separately the in-app Settings → Reduce motion. **Expected:** no confetti, no bouncing, and celebrations still show, just calmly.
@@ -99,9 +100,18 @@ Tick each box; anything marked **Expected** that doesn't happen is a bug.
 - [ ] Miss more days than you have freezes. **Expected:** a warm "welcome back" (with a small reward), and the streak starts again at 1. No guilt messaging.
 - [ ] Reach 3 days. **Expected:** the 3 day streak celebration (full screen) with its reward, once.
 
-## 13. Games
+## 13. Lessons, the journey and game feel
 
-- [ ] Each of the six games: start screen, then 3 · 2 · 1 · ¡Ya!, then play (score, combo ×2/×3/×5 badge, timer where timed), then results with XP, coins and NEW RECORD when beaten.
+- [ ] Say your very first word (*hola*). **Expected:** a "Your first Spanish word" ribbon, confetti and a warmer chord than a tapped answer.
+- [ ] Get 3, 5 and 10 right in a row. **Expected:** the feedback grows each time (sparks, then confetti and a flame at ten); a normal right answer stays a quick, quiet "yes".
+- [ ] The last question of a lesson. **Expected:** a "Final challenge" banner and a short sting; getting it right shows a "Final challenge" ribbon.
+- [ ] Vibration (Settings → Vibration on). **Expected on iPhone:** nothing vibrates — Safari has no vibration API — and nothing breaks. (On Android phones it buzzes.)
+- [ ] Finish the last lesson of a region. **Expected:** a passport stamp slams onto the city, a train crosses to the next one, a "¿Sabías que…?" fact, and no toasts on top until you tap **Travel to …**. The map then shows the stamp and "You are here" on the new city.
+- [ ] Buy an outfit in the shop. **Expected:** Emma appears wearing it with sparkles and a line; **switch back** restores the previous outfit.
+
+## 14. Games
+
+- [ ] Each of the six games: start screen with bronze/silver/gold targets, then 3 · 2 · 1 · ¡Ya!, then play (score, combo ×2/×3/×5 badge, timer where timed), then results with XP, coins, the medal earned (or what the next one needs) and NEW RECORD when beaten.
 - [ ] Game coins cap at 60 a day (shown on the start screen). XP keeps coming.
 
 ---

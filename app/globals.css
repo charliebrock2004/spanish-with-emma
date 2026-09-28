@@ -490,6 +490,77 @@ html[data-theme='theme-midnight'] {
   }
 }
 
+/* A burst of sparks: each one flies out along its own angle (--a) and distance (--d). Transform-only. */
+.spark {
+  animation: spark 680ms var(--ease-out-soft) both;
+}
+@keyframes spark {
+  0% {
+    transform: rotate(var(--a)) translateX(0) scale(0.3);
+    opacity: 1;
+  }
+  65% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--a)) translateX(var(--d)) scale(0.8);
+    opacity: 0;
+  }
+}
+
+/* Clouds over the journey's skylines, drifting very slowly. */
+.drift {
+  animation: drift 36s ease-in-out infinite alternate;
+}
+@keyframes drift {
+  from {
+    transform: translateX(-12px);
+  }
+  to {
+    transform: translateX(16px);
+  }
+}
+
+/* A bar that grows from --from to --to (e.g. journey progress after a lesson). */
+.grow-bar {
+  animation: grow-bar 900ms var(--ease-out-soft) 600ms both;
+}
+@keyframes grow-bar {
+  from {
+    width: var(--from);
+  }
+  to {
+    width: var(--to);
+  }
+}
+
+/* The train crossing to the next stop when a region is finished. */
+.train-ride {
+  animation: train-ride 2.4s var(--ease-out-soft) 700ms both;
+}
+@keyframes train-ride {
+  from {
+    left: 0%;
+  }
+  to {
+    left: 92%;
+  }
+}
+
+/* A single highlight that sweeps across a progress bar when it moves on. */
+.glint {
+  animation: glint 800ms ease-out both;
+  background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.75) 50%, transparent 80%);
+}
+@keyframes glint {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
 /* Respect the system setting and the in-app "Reduce motion" switch. */
 @media (prefers-reduced-motion: reduce) {
   *,

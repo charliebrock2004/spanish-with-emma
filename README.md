@@ -9,13 +9,16 @@ Learn European Spanish by talking with Emma — from your very first *¡Hola!* t
 - **Gentle corrections, smart review, six mini-games** (Word Match, Listen & Pick, Speed Round, Vocab Blast, Build the Sentence, Conversation Challenge).
 
 **The game**
-- **Player level 1 → 120**, separate from your language level, with a level-up moment, coins and unlocks along the way.
+- **A journey across Spain.** Each level is a stop — Madrid, Salamanca, Barcelona, Sevilla, Valencia, Santiago — drawn as a postcard with its landmarks. Finish one for a passport stamp and a train to the next city (and something true about it). Home and the results screen always show where you are and how far to the next stop.
+- **Answers that feel different by moment**: a quick tick for a right answer, sparks for a combo, fire at ten in a row, a ribbon for milestones (your first spoken word, each lesson's final challenge) — gentle and never punishing when you're wrong. Phones that support it buzz too.
+- **Player level 1 → 120**, separate from your language level, with a level-up moment, coins and unlocks along the way (several levels at once are one celebration, not a queue of them).
 - **Coins** from lessons, quests, streaks, games and chests — spent in the **shop** on Emma's outfits, backgrounds, avatar frames, chat bubbles, colour themes, special conversation scenes, XP boosts and streak freezes. Cosmetics and conveniences only — nothing pay-to-win, and no real money anywhere.
 - **Combos** (×2 at 3 in a row, ×3 at 5, ×5 at 10), **⭐⭐⭐ ratings** and a **perfect-lesson** bonus.
 - **Daily quests** (three a day, plus a daily chest), a **weekly challenge** with an exclusive cosmetic, **streak milestones** (3, 7, 14, 30, 60, 100, 365 days) with freezes that are earned or bought — and a warm welcome back, never guilt.
 - **Chests** with published odds, decided the moment they're opened (reloading can't reroll them).
 - **Achievements** in a cabinet — bronze, silver and gold, with locked ones as silhouettes.
-- **Emma as the main character** — fifteen expressions, her own reactions, and her outfit, background, frame and speech bubble chosen by you.
+- **Emma as the main character** — fifteen expressions, her own reactions, and her outfit, background, frame and speech bubble chosen by you. Buy something she can wear and she puts it straight on.
+- **Mini-game medals** — bronze, silver and gold targets for each of the six games.
 - **Emma's voice** — ElevenLabs (a warm, natural Scottish voice for her English and a Castilian one for her Spanish), streamed as it's generated, with pause, replay and slow replay.
 
 ## Quick start

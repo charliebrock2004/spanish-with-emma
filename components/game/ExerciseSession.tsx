@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { comboLine, emmaLine } from '@/components/emma/lines';
+import { comboLine, emmaLine, emmaLineFor } from '@/components/emma/lines';
 import { Button } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Sheet';
 import { EmmaAvatar } from '@/components/emma/EmmaAvatar';
@@ -9,6 +9,7 @@ import { difficultyProfile, difficultyShift, showPronunciationFor, type Difficul
 import { reviewExercise } from '@/lib/curriculum/generate';
 import { weakWords, type VocabLike } from '@/lib/progress/srs';
 import { answerReward, comboMultiplier, type AnswerKind, type Reward } from '@/lib/game/economy';
+import { haptics } from '@/services/haptics';
 import { soundService } from '@/services/sound/SoundService';
 import { voiceService } from '@/services/voice/VoiceService';
 import { useGameStore } from '@/store/gameStore';
@@ -16,7 +17,7 @@ import { useNow } from '@/lib/hooks/useNow';
 import { useVoiceCapabilities } from '@/components/voice/hooks';
 import { uid } from '@/lib/utils';
 import type { Exercise, LevelId, MistakeType } from '@/types/curriculum';
-import { FeedbackPanel, type Feedback } from './FeedbackPanel';
+import { FeedbackPanel, type Feedback, type FeedbackTier } from './FeedbackPanel';
 import { LessonHeader } from './LessonHeader';
 import { useActivityTimer } from './useActivityTimer';
 import type { ExerciseEnv, ExerciseResult } from './types';
@@ -88,6 +89,13 @@ function promptFor(e: Exercise): string {
       return '';
   }
 }
+
+/** Exercises the learner answers (intro and tip cards are just read). */
+const isAnswerable = (e: Exercise) => e.type !== 'intro' && e.type !== 'tip';
+
+/** The last thing to answer in the queue right now — the lesson's final challenge. */
+const isFinalAt = (queue: QueueItem[], index: number) =>
+  Boolean(queue[index] && isAnswerable(queue[index].exercise)) && queue.slice(index + 1).every((it) => !isAnswerable(it.exercise));
 
 function defaultMistakeType(e: Exercise): MistakeType {
   if (e.type === 'order') return 'word-order';
@@ -181,6 +189,8 @@ export function ExerciseSession({
   const [sessionId] = useState(() => uid('s'));
   const [xpBefore] = useState(() => useGameStore.getState().xp);
   const [combo, setCombo] = useState(0);
+  /** Right answers so far — each one sweeps a glint across the progress bar. */
+  const [rightAnswers, setRightAnswers] = useState(0);
   const requeued = useRef<string | null>(null);
   const finished = useRef(false);
   /** The queue item last answered — stops a double tap from counting twice. */
@@ -196,12 +206,34 @@ export function ExerciseSession({
   // Achievements earned mid-lesson are celebrated on the results screen instead.
   const setToastsPaused = useGameStore((s) => s.setToastsPaused);
   useEffect(() => {
-    setToastsPaused(true);
-    return () => setToastsPaused(false);
+    setToastsPaused(true, 'session');
+    return () => setToastsPaused(false, 'session');
   }, [setToastsPaused]);
 
   const current = queue[index];
   const total = queue.length;
+  // Only a real lesson has a finale worth marking (not a two-question review).
+  const isFinal = total >= 5 && isFinalAt(queue, index);
+
+  // While the player works on this one, fetch what Emma will say next so it starts straight away.
+  const upcoming = queue[index + 1]?.exercise;
+  const upcomingLine =
+    upcoming?.type === 'intro'
+      ? (upcoming.lines?.length ? upcoming.lines : [`*${upcoming.spanish}* — ${upcoming.english}.`]).join(' ')
+      : upcoming?.type === 'listen'
+        ? `*${upcoming.audio}*`
+        : null;
+  useEffect(() => {
+    if (!upcomingLine || !settings.autoplayAudio) return;
+    const t = window.setTimeout(() => voiceService.prefetch(upcomingLine.replace(/\{name\}/g, name), {}), 600);
+    return () => window.clearTimeout(t);
+  }, [upcomingLine, settings.autoplayAudio, name]);
+
+  // The last question gets its own little sting.
+  const finalKey = isFinal ? current?.key : undefined;
+  useEffect(() => {
+    if (finalKey) soundService.play('final');
+  }, [finalKey]);
 
   // All done → report once.
   useEffect(() => {
@@ -258,6 +290,9 @@ export function ExerciseSession({
       const firstAnswer = !s.answered.has(exercise.id);
       s.answered.add(exercise.id);
       const selfPaced = exercise.type === 'speak' || exercise.type === 'match' || exercise.type === 'conversation';
+      const wasFinal = queue.length >= 5 && isFinalAt(queue, index);
+      const statsBefore = useGameStore.getState().stats;
+      const firstWord = result.correct && exercise.type === 'speak' && statsBefore.speakingPassed + statsBefore.speakingTyped === 0;
 
       // Price the answer: speaking is worth most, a retry least; combos multiply.
       let reward: Reward = { xp: 0, coins: 0 };
@@ -319,16 +354,24 @@ export function ExerciseSession({
         setQueue((q) => [...q, { exercise, attempt: item.attempt + 1, key }]);
       }
 
-      // Emma's reaction.
+      // Emma's reaction — sized to the moment (see FeedbackTier).
       let title: string;
       let note: string | undefined;
+      let badge: string | undefined;
       const comboStep = result.correct ? comboLine(runNow) : null;
+      const spoken = exercise.type === 'speak' && !result.speaking?.typed;
+      let tier: FeedbackTier;
       if (result.correct) {
-        soundService.play('correct');
-        if (comboStep) {
-          window.setTimeout(() => soundService.playCombo(comboMultiplier(runNow)), 180);
+        tier = firstWord || wasFinal ? 'milestone' : comboStep ? (runNow >= 10 ? 'fire' : 'combo') : 'correct';
+        if (firstWord) {
+          badge = 'Your first Spanish word';
+          title = exercise.success ?? emmaLine('firstWord');
+        } else if (wasFinal) {
+          badge = 'Final challenge';
+          title = comboStep ?? emmaLine('finalDone');
+        } else if (comboStep) {
           title = comboStep;
-        } else if (exercise.type === 'speak' && !result.speaking?.typed) {
+        } else if (spoken) {
           title = exercise.success ?? emmaLine(result.speaking && result.speaking.score >= 0.9 ? 'speakGreat' : 'speakGood');
         } else if (exercise.type === 'conversation') {
           title = '¡Qué bien! Great conversation.';
@@ -343,8 +386,17 @@ export function ExerciseSession({
         } else {
           title = s.run >= 4 && s.run % 2 === 0 ? emmaLine('correctStreak') : emmaLine('correct');
         }
+        // Sound and touch escalate with the tier; a spoken answer has its own warmer chord.
+        soundService.play(spoken ? 'speakSuccess' : 'correct');
+        if (comboStep) window.setTimeout(() => soundService.playCombo(comboMultiplier(runNow)), 180);
+        if (tier === 'milestone') window.setTimeout(() => soundService.play('milestone'), comboStep ? 420 : 200);
+        haptics.play(tier === 'milestone' ? 'milestone' : comboStep ? 'combo' : 'success');
+        setRightAnswers((n) => n + 1);
       } else {
+        const almost = Boolean(result.nearMiss) || (result.speaking?.score ?? 0) >= 0.6;
+        tier = almost ? 'almost' : 'wrong';
         soundService.play('incorrect');
+        haptics.play('soft');
         if (exercise.type === 'speak') {
           title = result.speaking?.typed ? emmaLine('incorrect') : emmaLine('speakGiveUp');
         } else if (exercise.type === 'conversation') {
@@ -362,6 +414,8 @@ export function ExerciseSession({
 
       setFeedback({
         correct: result.correct,
+        tier,
+        badge,
         title,
         expected: showExpected ? result.expected : undefined,
         expectedLang: result.expectedLang,
@@ -371,7 +425,7 @@ export function ExerciseSession({
         boosted: earned.boostXp > 0,
         combo: result.correct ? runNow : 0,
         comboStep: Boolean(comboStep),
-        almost: !result.correct && (Boolean(result.nearMiss) || (result.speaking?.score ?? 0) >= 0.6),
+        almost: tier === 'almost',
         canRetry: Boolean(result.retryable && !result.correct && (!useHearts || hearts - (losesHeart ? 1 : 0) > 0)),
       });
 
@@ -467,7 +521,7 @@ export function ExerciseSession({
 
   return (
     <div className="paper flex h-dvh flex-col overflow-hidden">
-      <LessonHeader progress={progress} hearts={hearts} combo={combo} onClose={() => setConfirmExit(true)} showHearts={useHearts} />
+      <LessonHeader progress={progress} hearts={hearts} combo={combo} glint={rightAnswers} onClose={() => setConfirmExit(true)} showHearts={useHearts} />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {banner && (
           <div className="mx-auto mt-2 w-full max-w-xl px-4">
@@ -482,10 +536,21 @@ export function ExerciseSession({
             🔁 Quick review
           </p>
         )}
-        {current && current.attempt > 0 && !current.exercise.isReview && (
+        {current && current.attempt > 0 && !current.exercise.isReview && !isFinal && (
           <p className="mx-auto mt-3 inline-flex self-center rounded-full bg-honey-light px-3 py-1 text-xs font-extrabold tracking-wide text-honey-dark uppercase">
             ↻ One more try
           </p>
+        )}
+        {isFinal && current && (
+          <div key={`final:${current.key}`} className="mx-auto mt-3 flex flex-col items-center gap-1 self-center text-center" role="status">
+            <p className="inline-flex animate-slam items-center gap-1.5 rounded-full bg-ink px-3.5 py-1.5 text-xs font-black tracking-[0.16em] text-cream uppercase shadow-card">
+              <span className="text-sun" aria-hidden>
+                ★
+              </span>
+              Final challenge
+            </p>
+            <p className="animate-enter text-sm font-bold text-ink-soft [animation-delay:250ms]">{emmaLineFor('finalChallenge', current.key)}</p>
+          </div>
         )}
         {renderExercise()}
       </div>

@@ -13,6 +13,8 @@ export interface GameDef {
   /** Seconds, for timed games. */
   seconds?: number;
   tone: string;
+  /** Scores for bronze, silver and gold. Gold is a near-perfect run. */
+  medals: [number, number, number];
 }
 
 export const GAMES: GameDef[] = [
@@ -24,6 +26,7 @@ export const GAMES: GameDef[] = [
     howTo: 'Tap a Spanish word, then its English meaning. Three boards — go as fast as you can without mixing them up.',
     source: 'words',
     tone: 'bg-sun-light',
+    medals: [200, 380, 500],
   },
   {
     id: 'listen-pick',
@@ -34,6 +37,7 @@ export const GAMES: GameDef[] = [
     source: 'words',
     audio: true,
     tone: 'bg-sky-light',
+    medals: [100, 180, 250],
   },
   {
     id: 'speed-round',
@@ -44,6 +48,7 @@ export const GAMES: GameDef[] = [
     source: 'words',
     seconds: 60,
     tone: 'bg-terracotta-light',
+    medals: [200, 450, 700],
   },
   {
     id: 'vocab-blast',
@@ -54,6 +59,7 @@ export const GAMES: GameDef[] = [
     source: 'words',
     seconds: 45,
     tone: 'bg-[#f3e1f0]',
+    medals: [250, 600, 1000],
   },
   {
     id: 'build-sentence',
@@ -63,6 +69,7 @@ export const GAMES: GameDef[] = [
     howTo: 'Six sentences from your lessons. Tap the words in the right order to build each one.',
     source: 'sentences',
     tone: 'bg-sage-light',
+    medals: [40, 75, 110],
   },
   {
     id: 'conversation-challenge',
@@ -72,6 +79,7 @@ export const GAMES: GameDef[] = [
     howTo: 'Two short conversations from your lessons. Answer Emma out loud — or type if you need to.',
     source: 'conversations',
     tone: 'bg-honey-light',
+    medals: [20, 35, 50],
   },
 ];
 

@@ -1,25 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EmmaBubble, SceneBackdrop, sceneFor, useEquipped } from '@/components/cosmetics/cosmetics';
 import { EmmaFullBody } from '@/components/emma/EmmaFigure';
 import { emmaLine } from '@/components/emma/lines';
 import { ChestIcon, CoinIcon, FlameIcon, XpIcon } from '@/components/game-ui/icons';
-import { LevelBadge, StarRating, XpBar } from '@/components/game-ui/parts';
+import { LevelBadge, RewardChips, StarRating, XpBar } from '@/components/game-ui/parts';
 import { DailyQuestList, TomorrowPreview } from '@/components/quests/QuestParts';
 import { Button } from '@/components/ui/Button';
 import { Confetti } from '@/components/ui/Confetti';
+import { PassportStamp, RegionProgress } from '@/components/journey/Journey';
+import { Skyline } from '@/components/journey/Skyline';
 import { AnimatedNumber } from '@/components/ui/primitives';
 import { REGIONS } from '@/data/regions';
 import type { Reward, RewardLine, Stars } from '@/lib/game/economy';
 import { playerLevelFromXp } from '@/lib/game/levels';
 import { allQuestsDone } from '@/lib/game/quests';
 import type { StreakUpdate } from '@/lib/progress/streak';
+import { haptics } from '@/services/haptics';
 import { soundService } from '@/services/sound/SoundService';
 import { voiceService } from '@/services/voice/VoiceService';
 import { useGameStore } from '@/store/gameStore';
 import { useUiStore } from '@/store/uiStore';
-import type { LevelMeta } from '@/types/curriculum';
+import type { LevelId, LevelMeta } from '@/types/curriculum';
 import { cn, formatNumber } from '@/lib/utils';
 
 export interface CompletionSummary {
@@ -39,6 +42,8 @@ export interface CompletionSummary {
   xpAfter: number;
   chestId?: string | null;
   bestCombo?: number;
+  /** Lessons only: how far through this stop on the journey, before and after. */
+  journey?: { level: LevelId; before: number; after: number; total: number };
 }
 
 function formatTime(seconds: number) {
@@ -102,47 +107,92 @@ export function LevelProgressBar({ from, to, delay = 500, className }: { from: n
   );
 }
 
-/** Region complete: a new city opens on the map. */
+/** Region complete: a passport stamp for the city you've finished, and a train to the next one. */
 export function LevelUpCelebration({ completed, next, onContinue }: { completed: LevelMeta; next: LevelMeta | null; onContinue: () => void }) {
   const done = REGIONS[completed.id];
   const opened = next ? REGIONS[next.id] : null;
+  const scene = opened ? next!.id : completed.id;
+  const travelRef = useRef<HTMLButtonElement>(null);
+  // This is the moment: toasts and other celebrations wait until it's closed.
+  const setToastsPaused = useGameStore((s) => s.setToastsPaused);
   useEffect(() => {
-    soundService.play('levelUp');
+    setToastsPaused(true, 'region');
+    return () => setToastsPaused(false, 'region');
+  }, [setToastsPaused]);
+  useEffect(() => {
+    soundService.play('region');
+    haptics.play('milestone');
+    const chime = opened ? window.setTimeout(() => soundService.play('travel'), 1500) : null;
     const line = opened ? `*¡Enhorabuena!* You've finished ${done.name}. ${opened.welcome}` : "*¡Enhorabuena!* You've finished the whole journey. I'm so proud of you.";
-    const t = window.setTimeout(() => void voiceService.say(line, { style: 'excited' }), 600);
-    return () => window.clearTimeout(t);
+    const t = window.setTimeout(() => void voiceService.say(line, { style: 'excited' }), 900);
+    const focus = window.setTimeout(() => travelRef.current?.focus({ preventScroll: true }), 500);
+    return () => {
+      window.clearTimeout(t);
+      window.clearTimeout(focus);
+      if (chime) window.clearTimeout(chime);
+    };
   }, [done, opened]);
 
   return (
-    <div className="fixed inset-0 z-40 flex animate-fade flex-col items-center justify-between overflow-hidden bg-gradient-to-b from-terracotta to-brick px-6 pt-12 pb-8 text-center text-white safe-top safe-bottom">
+    <div
+      className="fixed inset-0 z-40 flex animate-fade flex-col items-center overflow-y-auto px-6 pt-8 pb-8 text-center safe-top safe-bottom"
+      style={{ background: `linear-gradient(180deg, ${REGIONS[scene].sky[0]} 0%, #fbf3e8 70%)` }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={opened ? `${done.name} complete. Next stop: ${opened.name}` : 'Journey complete'}
+    >
       <Confetti intensity={170} origin={0.3} />
-      <div className="animate-pop">
-        <p className="text-sm font-extrabold tracking-[0.22em] text-white/80 uppercase">
-          Level {completed.id} complete · {done.name}
+      <Skyline level={scene} className="pointer-events-none fixed inset-x-0 bottom-0 h-[34dvh] w-full opacity-90" />
+      <div className="relative my-auto flex w-full max-w-sm flex-col items-center">
+        <p className="text-xs font-extrabold tracking-[0.2em] uppercase" style={{ color: done.colour }}>
+          Stop {completed.id} complete · {completed.cefr}
         </p>
-        <p className="mt-3 text-6xl" aria-hidden>
-          {done.landmark}
-          {opened && <span className="mx-3 text-4xl text-white/70">→</span>}
-          {opened?.landmark}
+        <div className="relative mt-3 flex items-center gap-4">
+          <h1 className="font-display text-[40px] leading-none font-semibold">{done.name}</h1>
+          <PassportStamp level={completed.id} animated className="[animation-delay:500ms]" />
+        </div>
+
+        {opened && next ? (
+          <>
+            {/* The train ride to the next stop. */}
+            <div className="relative mt-6 w-full px-4" aria-hidden>
+              <div className="border-t-[3px] border-dashed" style={{ borderColor: opened.colour }} />
+              <span className="train-ride absolute -top-[15px] -translate-x-1/2 text-2xl">🚆</span>
+              <div className="mt-2 flex justify-between text-xs font-extrabold text-ink-soft">
+                <span>{done.name}</span>
+                <span style={{ color: opened.colour }}>{opened.name}</span>
+              </div>
+            </div>
+            <h2 className="mt-5 font-display text-[30px] leading-tight font-semibold">
+              ¡Enhorabuena! Next stop: <span style={{ color: opened.colour }}>{opened.name}</span>
+            </h2>
+            <p className="mt-2 text-ink-soft">
+              Level {next.id} · {next.title} is open on your map.
+            </p>
+            <p className="mt-4 rounded-2xl bg-paper/90 px-4 py-3 text-left text-sm shadow-card">
+              <span className="block text-xs font-black tracking-[0.12em] uppercase" style={{ color: opened.colour }}>
+                ¿Sabías que…?
+              </span>
+              {opened.fact}
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 className="mt-5 font-display text-[30px] leading-tight font-semibold">¡Enhorabuena! You walked the whole Camino.</h2>
+            <p className="mt-2 text-ink-soft">From your first ¡hola! in Madrid all the way to Santiago.</p>
+          </>
+        )}
+        <RewardChips xp={100} coins={100} size="lg" className="mt-4 justify-center" />
+        <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-extrabold text-ink-soft">
+          <ChestIcon size={22} tone="gold" /> and a milestone chest to open
         </p>
-        <h1 className="mt-4 font-display text-[40px] leading-[1.05] font-semibold">¡Enhorabuena!</h1>
-        <p className="mx-auto mt-3 max-w-xs text-lg text-white/90">
-          {next && opened ? (
-            <>
-              <strong>{opened.name}</strong> is open on your map — Level {next.id}: {next.title}.
-            </>
-          ) : (
-            <>You&rsquo;ve completed the whole journey — from ¡hola! in Madrid to Santiago.</>
-          )}
-        </p>
-        <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-sun px-4 py-1.5 font-black text-ink">
-          +100 <XpIcon size={18} /> +100 <CoinIcon size={18} /> + a milestone chest
-        </p>
+        <div className="mt-3 flex items-end gap-3">
+          <EmmaFullBody height={200} celebrating className="relative max-h-[26dvh] w-auto drop-shadow-xl" />
+        </div>
+        <Button ref={travelRef} size="lg" block className="relative mt-4" onClick={onContinue}>
+          {opened ? `Travel to ${opened.name}` : 'Continue'}
+        </Button>
       </div>
-      <EmmaFullBody height={260} celebrating className="relative my-4 max-h-[36dvh] w-auto drop-shadow-xl" />
-      <Button variant="secondary" size="lg" block className="max-w-sm" onClick={onContinue}>
-        Continue
-      </Button>
     </div>
   );
 }
@@ -155,9 +205,12 @@ export function LessonComplete({
   secondaryLabel,
   onSecondary,
   emmaSays,
+  primaryDetail,
 }: {
   summary: CompletionSummary;
   primaryLabel: string;
+  /** A second line on the main button (e.g. the next lesson's name). */
+  primaryDetail?: string;
   onPrimary: () => void;
   secondaryLabel?: string;
   onSecondary?: () => void;
@@ -179,13 +232,13 @@ export function LessonComplete({
     const coin = window.setTimeout(() => soundService.play('coin'), 900);
     const s = window.setTimeout(() => void voiceService.say(line.replace(/¡[^!]*!/, (m) => `*${m}*`), { style: summary.perfect ? 'excited' : 'cheerful' }), 900);
     // Let the results land before quest toasts and level-ups join in.
-    setToastsPaused(true);
-    const resume = window.setTimeout(() => setToastsPaused(false), 2600);
+    setToastsPaused(true, 'results');
+    const resume = window.setTimeout(() => setToastsPaused(false, 'results'), 2600);
     return () => {
       window.clearTimeout(coin);
       window.clearTimeout(s);
       window.clearTimeout(resume);
-      setToastsPaused(false);
+      setToastsPaused(false, 'results');
     };
   }, [line, summary.perfect, setToastsPaused]);
 
@@ -266,6 +319,8 @@ export function LessonComplete({
           </li>
         </ul>
 
+        {summary.journey && summary.journey.after > summary.journey.before && <RegionProgress {...summary.journey} />}
+
         <LevelProgressBar from={summary.xpBefore} to={summary.xpAfter} className="mt-3" />
 
         {chest && !chest.openedAt && (
@@ -322,8 +377,9 @@ export function LessonComplete({
         )}
       </div>
       <div className="sticky bottom-0 mx-auto w-full max-w-xl space-y-2 bg-cream/95 px-5 pt-3 backdrop-blur safe-bottom">
-        <Button size="lg" block onClick={onPrimary}>
+        <Button size="lg" block onClick={onPrimary} className={cn(primaryDetail && '!h-auto min-h-14 flex-col !gap-0 py-2')}>
           {primaryLabel}
+          {primaryDetail && <span className="text-xs font-bold tracking-normal normal-case opacity-90">{primaryDetail}</span>}
         </Button>
         {secondaryLabel && onSecondary && (
           <Button variant="ghost" size="md" block onClick={onSecondary}>

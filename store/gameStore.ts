@@ -151,6 +151,8 @@ interface GameActions {
   equip(itemId: string): boolean;
   openChest(chestId: string): ResolvedPrize[] | null;
   shiftEvent(): void;
+  /** Drops these events (a group that was celebrated together). */
+  dismissEvents(ids: string[]): void;
   setAnnouncedShift(shift: -1 | 0 | 1): void;
   resetProgress(): void;
 }
@@ -160,7 +162,10 @@ interface Transient {
   events: UiEvent[];
   /** Hold celebrations while a lesson is in progress (shown on the results screen). */
   toastsPaused: boolean;
-  setToastsPaused(paused: boolean): void;
+  /** Who is holding celebrations back right now (a lesson, a results screen…). */
+  toastHolds: string[];
+  /** Holds or releases celebrations for `key`; they wait while anyone holds them. */
+  setToastsPaused(paused: boolean, key?: string): void;
 }
 
 export type GameStore = GameData & GameActions & Transient;
@@ -203,8 +208,14 @@ export const useGameStore = create<GameStore>()(
         hydrated: false,
         events: [],
         toastsPaused: false,
-        setToastsPaused(paused) {
-          set({ toastsPaused: paused });
+        toastHolds: [],
+        setToastsPaused(paused, key = 'default') {
+          set((s) => {
+            const has = s.toastHolds.includes(key);
+            if (paused === has) return {};
+            const holds = paused ? [...s.toastHolds, key] : s.toastHolds.filter((k) => k !== key);
+            return { toastHolds: holds, toastsPaused: holds.length > 0 };
+          });
         },
 
         completeOnboarding(name, experience) {
@@ -494,6 +505,10 @@ export const useGameStore = create<GameStore>()(
 
         shiftEvent() {
           set((s) => ({ events: s.events.slice(1) }));
+        },
+
+        dismissEvents(ids) {
+          set((s) => ({ events: s.events.filter((e) => !ids.includes(e.id)) }));
         },
 
         setAnnouncedShift(shift) {

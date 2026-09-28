@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { EmmaAvatar } from '@/components/emma/EmmaAvatar';
 import { EmmaFullBody } from '@/components/emma/EmmaFigure';
 import { emmaLine } from '@/components/emma/lines';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Confetti } from '@/components/ui/Confetti';
 import { ACHIEVEMENTS_BY_ID } from '@/data/achievements';
 import { ITEMS_BY_ID } from '@/data/shop';
+import { leadingGroup, mergeLevelUps } from '@/lib/game/celebrations';
 import { CHESTS } from '@/lib/game/chests';
 import { soundService, type SoundName } from '@/services/sound/SoundService';
 import { voiceService } from '@/services/voice/VoiceService';
@@ -39,6 +40,31 @@ function emojiIcon(emoji: string, tone = 'bg-sun-light') {
       {emoji}
     </span>
   );
+}
+
+/** Achievements unlocked together share one toast. */
+function describeAchievements(events: Extract<UiEvent, { kind: 'achievement' }>[]): ToastContent | null {
+  const defs = events.map((e) => ACHIEVEMENTS_BY_ID.get(e.achievementId)).filter((d) => d !== undefined);
+  if (defs.length === 0) return null;
+  return {
+    icon: (
+      <span className="flex -space-x-3" aria-hidden>
+        {defs.map((def, i) => (
+          <span
+            key={def.id}
+            className={cn('grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br text-2xl shadow-card ring-2 ring-paper', TIER_MEDAL[def.tier])}
+            style={{ zIndex: defs.length - i }}
+          >
+            {def.emoji}
+          </span>
+        ))}
+      </span>
+    ),
+    eyebrow: `${defs.length} achievements unlocked`,
+    title: defs.map((d) => d.title).join(' · '),
+    reward: { coins: events.reduce((n, e) => n + e.coins, 0) },
+    sound: 'achievement',
+  };
 }
 
 function describe(event: UiEvent): ToastContent | null {
@@ -74,7 +100,7 @@ function describe(event: UiEvent): ToastContent | null {
     case 'item': {
       const item = ITEMS_BY_ID.get(event.itemId);
       if (!item) return null;
-      return { icon: <ItemPreview item={item} size={44} />, eyebrow: 'New item unlocked', title: item.name, sound: 'reward' };
+      return { icon: <ItemPreview item={item} size={44} />, eyebrow: 'New item unlocked', title: `${item.name} — ${emmaLine('newLook')}`, sound: 'unlock' };
     }
     case 'welcome-back':
       return { icon: <EmmaAvatar state="happy" size={44} animated={false} decorative />, eyebrow: 'Welcome back', title: emmaLine('welcomeBack'), reward: event.reward, sound: 'reward' };
@@ -155,7 +181,7 @@ function UnlockedItems({ ids }: { ids: string[] }) {
   );
 }
 
-function Moment({ event, onDone }: { event: MomentEvent; onDone: () => void }) {
+function Moment({ event, levels = 1, onDone }: { event: MomentEvent; levels?: number; onDone: () => void }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [line] = useState(() => (event.kind === 'level-up' ? emmaLine('levelUp') : event.kind === 'streak-milestone' ? event.milestone.line : emmaLine('todayDone')));
   const chestId = event.kind === 'weekly' ? null : event.chestId;
@@ -178,7 +204,7 @@ function Moment({ event, onDone }: { event: MomentEvent; onDone: () => void }) {
   let items: string[] = [];
   let background = 'from-terracotta to-brick';
   if (event.kind === 'level-up') {
-    eyebrow = 'Level up!';
+    eyebrow = levels > 1 ? `Level up! +${levels} levels` : 'Level up!';
     hero = <LevelBadge level={event.level} progress={1} size={132} className="animate-slam shadow-lift" />;
     title = `You reached level ${event.level}`;
     reward = { coins: event.coins };
@@ -255,27 +281,39 @@ function Moment({ event, onDone }: { event: MomentEvent; onDone: () => void }) {
 
 // ─── Host ──────────────────────────────────────────────────────────────────
 
-/** Shows queued rewards one at a time: small ones as toasts, big ones full screen. */
+/** Shows queued rewards one at a time: small ones as toasts, big ones full screen. Rewards that land together are shown together. */
 export function CelebrationHost() {
   const paused = useGameStore((s) => s.toastsPaused);
-  const event = useGameStore((s) => s.events[0]);
-  const queued = useGameStore((s) => s.events.length);
-  const shiftEvent = useGameStore((s) => s.shiftEvent);
+  const events = useGameStore((s) => s.events);
+  const dismissEvents = useGameStore((s) => s.dismissEvents);
   const chestOpen = useUiStore((s) => s.chestId !== null);
-  const active = event && !paused && !chestOpen ? event : undefined;
-  const content = useMemo(() => (active && !isMoment(active) ? describe(active) : null), [active]);
+  const group = useMemo(() => leadingGroup(events), [events]);
+  const active = group[0] && !paused && !chestOpen ? group[0] : undefined;
+  const count = group.length;
+
+  const moment = useMemo((): MomentEvent | null => {
+    if (!active || !isMoment(active)) return null;
+    return active.kind === 'level-up' ? mergeLevelUps(group as Extract<UiEvent, { kind: 'level-up' }>[]) : active;
+  }, [active, group]);
+  const content = useMemo(() => {
+    if (!active || isMoment(active)) return null;
+    if (active.kind === 'achievement' && count > 1) return describeAchievements(group as Extract<UiEvent, { kind: 'achievement' }>[]);
+    return describe(active);
+  }, [active, group, count]);
+
+  const done = useCallback(() => dismissEvents(group.map((e) => e.id)), [dismissEvents, group]);
 
   useEffect(() => {
     // Nothing to show for this event (e.g. an ordinary streak extension) — move on.
-    if (active && !isMoment(active) && !content) shiftEvent();
-  }, [active, content, shiftEvent]);
+    if (active && !isMoment(active) && !content) done();
+  }, [active, content, done]);
 
   return (
     <>
       <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] flex justify-center px-4 safe-top" aria-live="polite">
-        {active && content && <Toast key={active.id} content={content} queued={queued} onDone={shiftEvent} />}
+        {active && content && <Toast key={active.id} content={content} queued={events.length - count + 1} onDone={done} />}
       </div>
-      {active && isMoment(active) && <Moment key={active.id} event={active} onDone={shiftEvent} />}
+      {active && moment && <Moment key={active.id} event={moment} levels={count} onDone={done} />}
     </>
   );
 }

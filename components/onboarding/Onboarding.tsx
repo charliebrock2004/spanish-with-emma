@@ -8,6 +8,11 @@ import { EmmaText } from '@/components/emma/EmmaText';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { useSpeaker, useVoiceStatus } from '@/components/voice/hooks';
+import { JourneyRoute } from '@/components/journey/Journey';
+import { Skyline } from '@/components/journey/Skyline';
+import { REGIONS } from '@/data/regions';
+import { LEVEL_IDS } from '@/lib/progress/journey';
+import { haptics } from '@/services/haptics';
 import { soundService } from '@/services/sound/SoundService';
 import { voiceService } from '@/services/voice/VoiceService';
 import { useGameStore } from '@/store/gameStore';
@@ -26,10 +31,69 @@ const EXPERIENCES: Array<{ value: Experience; label: string; hint: string; emoji
 
 const PLACEMENT: Record<Experience, LevelId> = { new: 1, little: 2, lots: 3 };
 
+export interface FirstLesson {
+  id: string;
+  title: string;
+  emoji: string;
+}
+
+/** The trip, as a boarding pass: who's travelling, where to, and the very first lesson. */
+function BoardingPass({ name, level, lesson, departing }: { name: string; level: LevelId; lesson?: FirstLesson; departing: boolean }) {
+  const region = REGIONS[level];
+  const stops = LEVEL_IDS.map((id) => ({ level: id, done: 0, total: 1, unlocked: id <= level, complete: false }));
+  return (
+    <div className="animate-enter">
+      <div className="relative overflow-hidden rounded-[var(--radius-card)] bg-paper shadow-lift">
+        <div className="relative h-[clamp(84px,14dvh,118px)]" style={{ background: `linear-gradient(180deg, ${region.sky[0]}, ${region.sky[1]})` }}>
+          <Skyline level={level} className="absolute inset-0 h-full w-full" />
+          <span className="absolute top-3 left-4 rounded-full bg-paper/90 px-2.5 py-1 text-[10px] font-black tracking-[0.18em] text-ink-soft uppercase shadow-card">
+            Tarjeta de embarque
+          </span>
+        </div>
+        <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2.5 px-5 pt-3.5 pb-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black tracking-[0.16em] text-ink-faint uppercase">Traveller</p>
+            <p className="truncate text-lg font-extrabold">{name.trim() || 'Amigo'}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-black tracking-[0.16em] text-ink-faint uppercase">Stop</p>
+            <p className="text-lg font-extrabold tabular-nums">{level} of 6</p>
+          </div>
+          <div className="col-span-2 flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black tracking-[0.16em] text-ink-faint uppercase">Destination</p>
+              <p className="font-display text-[28px] leading-none font-semibold" style={{ color: region.colour }}>
+                {region.name}
+              </p>
+            </div>
+            <div className="min-w-0 text-right">
+              <p className="text-[10px] font-black tracking-[0.16em] text-ink-faint uppercase">First lesson</p>
+              <p className="font-extrabold leading-tight">
+                {lesson?.emoji} {lesson?.title}
+              </p>
+            </div>
+          </div>
+        </div>
+        {/* The perforated tear-off line. */}
+        <div className="relative border-t-2 border-dashed border-sand px-5 pt-1 pb-2">
+          <span className="absolute -top-3 -left-3 h-6 w-6 rounded-full bg-cream" aria-hidden />
+          <span className="absolute -top-3 -right-3 h-6 w-6 rounded-full bg-cream" aria-hidden />
+          <JourneyRoute levels={stops} current={level} compact />
+        </div>
+        {departing && (
+          <span className="absolute top-[88px] right-5 rotate-[-10deg] animate-slam rounded-xl border-4 border-sage-dark bg-paper/85 px-3 py-1 font-display text-2xl font-semibold text-sage-dark">
+            ¡Buen viaje!
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SpeechBubble({ text, name, onReplay }: { text: string; name: string; onReplay: () => void }) {
   return (
     <div className="relative animate-pop rounded-3xl rounded-tl-md bg-paper px-5 py-4 shadow-card">
-      <p className="pr-8 text-[19px] leading-snug font-semibold">
+      <p className="pr-8 text-[17px] leading-snug font-semibold min-[380px]:text-[19px]">
         <EmmaText text={text} name={name} />
       </p>
       <button
@@ -44,7 +108,7 @@ function SpeechBubble({ text, name, onReplay }: { text: string; name: string; on
   );
 }
 
-export function Onboarding({ firstLessons }: { firstLessons: Record<LevelId, string | undefined> }) {
+export function Onboarding({ firstLessons }: { firstLessons: Record<LevelId, FirstLesson | undefined> }) {
   const router = useRouter();
   const hydrated = useGameStore((s) => s.hydrated);
   const onboarded = useGameStore((s) => s.profile.onboarded);
@@ -55,24 +119,34 @@ export function Onboarding({ firstLessons }: { firstLessons: Record<LevelId, str
   const { say } = useSpeaker();
   const { speaking } = useVoiceStatus();
   const finishing = useRef(false);
+  const [departing, setDeparting] = useState(false);
+  const placement = experience ? PLACEMENT[experience] : 1;
+  const firstStop = REGIONS[placement].name;
 
   useEffect(() => {
     if (hydrated && onboarded && !finishing.current) router.replace('/');
   }, [hydrated, onboarded, router]);
+
+  // The welcome chest waits until the trip has started.
+  const setToastsPaused = useGameStore((s) => s.setToastsPaused);
+  useEffect(() => {
+    setToastsPaused(true, 'onboarding');
+    return () => setToastsPaused(false, 'onboarding');
+  }, [setToastsPaused]);
 
   const lines: Record<Step, string> = {
     splash: '',
     hello: "*¡Hola!* I'm Emma 👋 Welcome to Spanish with Emma.",
     experience: 'Have you learned Spanish before?',
     name: 'What should we call you?',
-    ready: `*¡Encantada, ${name.trim() || 'amigo'}!* Ready? Your very first word is waiting.`,
+    ready: `*¡Encantada, ${name.trim() || 'amigo'}!* Our trip across Spain starts in ${firstStop}.`,
   };
 
   const go = (next: Step) => {
     setStep(next);
     const line = lines[next];
     if (line) {
-      const text = next === 'ready' ? `*¡Encantada, ${name.trim() || 'amigo'}!* Ready? Your very first word is waiting.` : line;
+      const text = next === 'ready' ? `*¡Encantada, ${name.trim() || 'amigo'}!* Right — our trip across Spain starts in ${firstStop}. Your first word is waiting there.` : line;
       void say(text);
     }
   };
@@ -92,13 +166,19 @@ export function Onboarding({ firstLessons }: { firstLessons: Record<LevelId, str
   };
 
   const finish = () => {
-    if (!experience) return;
+    if (!experience || departing) return;
     finishing.current = true;
     voiceService.stop();
     completeOnboarding(name, experience);
-    soundService.play('complete');
+    // The welcome chest waits on Home (Emma mentions it there) rather than as a toast after the first lesson.
+    const store = useGameStore.getState();
+    store.dismissEvents(store.events.filter((e) => e.kind === 'chest').map((e) => e.id));
+    // The ticket gets its stamp and the station chimes — then we're off.
+    setDeparting(true);
+    soundService.play('travel');
+    haptics.play('success');
     const lesson = firstLessons[PLACEMENT[experience]] ?? firstLessons[1];
-    router.push(lesson ? `/lesson/${lesson}` : '/');
+    window.setTimeout(() => router.push(lesson ? `/lesson/${lesson.id}` : '/'), 850);
   };
 
   const index = STEPS.indexOf(step);
@@ -147,14 +227,14 @@ export function Onboarding({ firstLessons }: { firstLessons: Record<LevelId, str
       </div>
 
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
-        <div className="mt-6 flex items-end gap-3">
-          <EmmaAvatar state={speaking ? 'speaking' : step === 'experience' ? 'thinking' : 'happy'} size={72} priority />
+        <div className="mt-4 flex items-end gap-3 min-[380px]:mt-6">
+          <EmmaAvatar state={speaking ? 'speaking' : step === 'experience' ? 'thinking' : 'happy'} size={64} priority />
           <div className="flex-1 pb-2">
             <SpeechBubble text={lines[step]} name={name} onReplay={() => void say(lines[step], { includeEnglish: true })} />
           </div>
         </div>
 
-        <div className="mt-8 flex-1">
+        <div className="mt-5 flex-1 min-[380px]:mt-8">
           {step === 'hello' && (
             <div className="flex justify-center">
               <EmmaPortrait state="happy" width={240} priority fade className="w-60 animate-enter" />
@@ -214,25 +294,7 @@ export function Onboarding({ firstLessons }: { firstLessons: Record<LevelId, str
             </form>
           )}
 
-          {step === 'ready' && (
-            <div className="animate-enter space-y-3">
-              {[
-                ['🎙️', 'Speak out loud', 'Emma listens and helps with pronunciation.'],
-                ['🎯', `${10} minutes a day`, 'Short lessons, a daily streak and review.'],
-                ['💬', 'Real conversations', 'Chat with Emma as your Spanish grows.'],
-              ].map(([emoji, title, body]) => (
-                <div key={title} className="flex items-center gap-4 rounded-2xl bg-paper px-4 py-3 shadow-card">
-                  <span className="text-2xl" aria-hidden>
-                    {emoji}
-                  </span>
-                  <span>
-                    <span className="block font-extrabold">{title}</span>
-                    <span className="block text-sm text-ink-soft">{body}</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          {step === 'ready' && <BoardingPass name={name} level={placement} lesson={firstLessons[placement] ?? firstLessons[1]} departing={departing} />}
         </div>
 
         <div className="pt-6">
@@ -252,8 +314,8 @@ export function Onboarding({ firstLessons }: { firstLessons: Record<LevelId, str
             </Button>
           )}
           {step === 'ready' && (
-            <Button size="lg" block onClick={finish}>
-              Start learning 🇪🇸
+            <Button size="lg" block onClick={finish} disabled={departing}>
+              Let&rsquo;s go to {firstStop} 🚆
             </Button>
           )}
         </div>

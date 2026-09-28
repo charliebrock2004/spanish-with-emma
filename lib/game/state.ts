@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: Settings = {
   speechRate: 0.9,
   difficulty: 'auto',
   soundEffects: true,
+  haptics: true,
   soundVolume: 0.8,
   music: false,
   expressiveVoice: true,

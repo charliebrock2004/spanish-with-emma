@@ -12,7 +12,7 @@ test('a new learner meets Emma and says their first Spanish word', async ({ page
   await page.getByRole('button', { name: 'Continue' }).click();
   await page.fill('#player-name', 'Charlie');
   await page.getByRole('button', { name: 'Continue' }).click();
-  await page.getByRole('button', { name: /Start learning/ }).click();
+  await page.getByRole('button', { name: /go to Madrid/ }).click();
 
   await expect(page).toHaveURL(/\/lesson\/l1-hola$/);
   await expect(page.getByText('That means hello', { exact: false }).first()).toBeVisible();
@@ -37,7 +37,7 @@ test('the lesson player offers typing when the microphone is blocked', async ({ 
   await page.getByRole('button', { name: 'Continue' }).click();
   await page.fill('#player-name', 'Sam');
   await page.getByRole('button', { name: 'Continue' }).click();
-  await page.getByRole('button', { name: /Start learning/ }).click();
+  await page.getByRole('button', { name: /go to Madrid/ }).click();
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await willHear(page, '__denied__');

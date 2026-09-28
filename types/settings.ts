@@ -19,6 +19,8 @@ export interface Settings {
   speechRate: number;
   difficulty: DifficultySetting;
   soundEffects: boolean;
+  /** Small vibrations on answers and rewards (phones that support it). */
+  haptics: boolean;
   /** Sound-effect volume, 0–1. */
   soundVolume: number;
   music: boolean;

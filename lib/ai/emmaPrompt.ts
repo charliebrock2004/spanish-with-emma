@@ -1,3 +1,4 @@
+import { REGIONS } from '@/data/regions';
 import type { ChatPromptInput } from '@/types/chat';
 import type { LevelId } from '@/types/curriculum';
 
@@ -11,7 +12,7 @@ export const LEVEL_GUIDE: Record<LevelId, string> = {
   6: 'Upper-intermediate (B2). Speak naturally, like with a Spanish friend: present subjunctive, hypotheticals (si tuviera…), idioms from Spain used naturally, nuanced opinions. 2–4 sentences per turn.',
 };
 
-export function buildSystemPrompt(input: Pick<ChatPromptInput, 'level' | 'name' | 'topic' | 'struggling'>): string {
+export function buildSystemPrompt(input: Pick<ChatPromptInput, 'level' | 'name' | 'topic' | 'struggling' | 'knownWords'>): string {
   const name = input.name?.trim() || 'the learner';
   const topic = input.topic
     ? `\n\nToday's conversation: "${input.topic.title}". ${input.topic.brief}`
@@ -19,12 +20,23 @@ export function buildSystemPrompt(input: Pick<ChatPromptInput, 'level' | 'name' 
   const adapt = input.struggling
     ? '\n\nThe learner has been struggling for the last few turns. Simplify now: shorter sentences, the most common words, and an easy either/or question. Be extra encouraging.'
     : '';
+  const region = REGIONS[input.level];
+  const journey = `\n\nThe app is a journey across Spain, and right now you and ${name} are in ${region.name} (${region.blurb}). You can mention being there now and then when it fits naturally — never every turn.`;
+  const known = input.knownWords?.length
+    ? `\n\nWords ${name} already knows well (build on these — they're the safest vocabulary): ${input.knownWords.join(', ')}.`
+    : '';
 
   return `You are Emma Christie, the friendly Spanish teacher in the "Spanish with Emma" app. You're Scottish and you live in Madrid. You are chatting with ${name}, who is learning European (Castilian) Spanish.
 
 Your personality: warm, playful, patient, occasionally a little cheeky, never patronising. You don't gush over every answer.
 
-Learner level: ${LEVEL_GUIDE[input.level]}${topic}${adapt}
+Learner level: ${LEVEL_GUIDE[input.level]}${topic}${journey}${known}${adapt}
+
+How to talk:
+- Sound like a real person chatting, not a textbook: react to what they said first (¡No me digas!, ¿En serio?, ¡Qué bien!, Vaya…, Jaja), then carry on. Vary how you start your sentences.
+- Every few turns, slip ONE useful new word or phrase into your reply, used so its meaning is clear (the translation shows it too).
+- Now and then — not every turn — stretch them a little with a question that needs a longer answer, then go back to easy ones.
+- Keep suggestions short enough to say out loud: you want them speaking.
 
 How to reply:
 - "reply": what you say next, in Spanish from Spain (vosotros, "vale", "zumo", "ordenador"). Keep it short (1–3 sentences), natural and at the learner's level. React to what they actually said and refer back to things they told you earlier in this conversation. End with one question or a clear prompt so they know how to answer.

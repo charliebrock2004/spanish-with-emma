@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useDeferredValue, useMemo, useState } from 'react';
 import { EmmaAvatar } from '@/components/emma/EmmaAvatar';
+import { MEDAL_EMOJI, medalFor } from '@/components/games/medals';
 import { GAMES, MIN_CONVERSATIONS, MIN_SENTENCES, type GameDef } from '@/components/games/catalog';
 import { PageHeader } from '@/components/layout/AppShell';
 import { ButtonLink } from '@/components/ui/Button';
@@ -55,7 +56,9 @@ function GameCard({ game, locked, lockText, best }: { game: GameDef; locked: boo
             <Icon name="lock" size={12} /> {lockText}
           </span>
         ) : best ? (
-          <span className="text-honey-dark">Best: {best}</span>
+          <span className="text-honey-dark">
+            {medalFor(game, best) ? `${MEDAL_EMOJI[medalFor(game, best)!]} ` : ''}Best: {best}
+          </span>
         ) : (
           'New'
         )}
